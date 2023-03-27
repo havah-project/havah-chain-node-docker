@@ -19,8 +19,8 @@ DISK : minimum SSD 1.5TB, recommend SSD 2TB +
 Network: minimum 1Gbps, recommend 2Gbps +
 
 External Communications 
-TCP 7100: TCP port used for peer-to-peer connection between peer nodes.
-TCP 9000: JSON-RPC or RESTful API port serving application requests.P-Rep must allow TCP connections to port 7100 and 9000 of an external host. ( Use 0.0.0.0/0 for a source from any network )
+TCP 7100: TCP port used for peer-to-peer connection between havah nodes.
+TCP 9000: JSON-RPC or RESTful API port serving application requests.Validators must allow TCP connections to port 7100 and 9000 of an external host. ( Use 0.0.0.0/0 for a source from any network )
 ```
 
 ## Getting started
@@ -30,7 +30,7 @@ Open docker-compose.yml in a text editor and add the following content:
 ```yaml
 version: "3"
 services:
-   prep:
+   havah-node:
       image: havah/chain-node
       container_name: "havah-chain-node"
       network_mode: host
@@ -104,7 +104,7 @@ The directories(data, config, icon, logs …) are created by docker engine, but 
 
 | Name               | default                | type | required | description                                                                      |
 |--------------------|------------------------|------|----------|----------------------------------------------------------------------------------|
-| SERVICE            | MainNet                | str  | false    |  Service Name - (MainNet, SejongNet)                                             |
+| SERVICE            | MainNet                | str  | false    | Service Name - (MainNet, VegaNet)                                                |
 | ROLE               | 0                      | int  | true     | Role of running node. 0: Citizen, 3: P-Rep                                       |
 | CONFIG_URL         |                        | str  | false    |                                                                                  |
 | CONFIG_URL_FILE    | default_configure.json | str  | false    |                                                                                  |
@@ -113,7 +113,7 @@ The directories(data, config, icon, logs …) are created by docker engine, but 
 | FASTEST_START      | false                  | bool | false    | Download snapshot DB                                                             |
 | KEY_STORE_FILENAME | keystore.json          | str  | true     | keystore.json file name                                                          |
 | KEY_PASSWORD       |                        | str  | true     | password of keystore.json file                                                   |
-| USE_NTP_SYNC       | True                   | bool | false    | Whether to use NTP in container                                                                       |
+| USE_NTP_SYNC       | True                   | bool | false    | Whether to use NTP in container                                                  |
 | NTP_SERVER         |                        | str  | false    | NTP Server                                                                       |
 | NTP_REFRESH_TIME   |                        | int  | false    | ntp refresh time                                                                 |
 | SLACK_WH_URL       |                        | str  | false    | slack web hook url - If a problem occurs, you can receive an alarm with a slack. |
