@@ -1,0 +1,12 @@
+{{ if (ne .Env.LOGFILE "") }}
+{{ .Env.LOGFILE }} { {{ else if ne .Env.LOGFILE "" }}
+{{ .Env.LOGFILE }} { {{ else }}/goloop/logs/goloop.log { {{ end }}
+    daily
+    {{ if ne .Env.LOGROTATE_DATE "" }}rotate {{ .Env.LOGROTATE_DATE }}{{ else }}rotate 14{{ end }}
+    compress
+    delaycompress
+    dateext
+    dateformat .%Y-%m-%d
+    missingok
+    copytruncate
+}

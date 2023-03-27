@@ -1,0 +1,3 @@
+[submodule "goloop"]
+	path = goloop-havah
+	url = https://github.com/havah-project/goloop-havah

@@ -1,0 +1,9 @@
+#!/usr/bin/with-contenv bash
+
+export $(grep ^GOLOOP /goloop/.env)
+
+if [[ -f $GOLOOP_NODE_SOCK ]]; then
+    rm -f $GOLOOP_NODE_SOCK
+fi
+
+s6-svscanctl -t /var/run/s6/services

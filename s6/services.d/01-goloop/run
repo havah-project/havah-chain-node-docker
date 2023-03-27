@@ -1,0 +1,37 @@
+#!/usr/bin/with-contenv bash
+source /ctx/bin/functions.sh
+#source /goloop/venv/bin/activate
+
+function goloop_server_save(){
+    if [[ "${GOLOOP_CONFIG}" != "" && ! -f "${GOLOOP_CONFIG}" ]]; then
+        UNSET="GOLOOP_CONFIG"
+        CMD="goloop server save ${GOLOOP_CONFIG}"
+        logging "Generate ${GOLOOP_CONFIG} - ${CMD}"
+        bash -c "unset $UNSET ; $CMD 2>&1 | tee -a ${BOOTING_LOG}"
+    fi
+}
+
+cd ${BASE_DIR}
+goloop_server_save;
+
+if [[ "$ONLY_GOLOOP" == "True" || "$ONLY_GOLOOP" == "true" ]]; then
+    logging "Start ONLY_GOLOOP mode=${ONLY_GOLOOP}"
+    goloop server start
+    exit;
+fi
+
+logging "Start goloop server (${LOG_OUTPUT_TYPE}, ${BASE_DIR}, ${GOLOOP_CONFIG})"
+echo "Start goloop server (${LOG_OUTPUT_TYPE}, ${BASE_DIR}, ${GOLOOP_CONFIG})"
+
+if [[ "$LOG_OUTPUT_TYPE" == "file" ]]; then
+#    goloop server start 2>&1 >> ${LOGFILE}
+    goloop server start 2>> ${LOGFILE}
+elif [[ "$LOG_OUTPUT_TYPE" == "console" ]]; then
+    goloop server start
+else
+    goloop server start 2>&1 | tee -a ${LOGFILE}
+fi
+
+if [[ "$S" ]]; then
+    echo $S
+fi
