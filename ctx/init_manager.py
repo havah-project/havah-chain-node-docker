@@ -3,6 +3,8 @@
 import os
 import sys
 
+import pawnlib.typing
+
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from config.configure import Configure as CFG
 from config.configure_setter import ConfigureSetter as CS

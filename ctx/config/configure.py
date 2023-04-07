@@ -116,6 +116,7 @@ class Configure:
         temp_env['BASE_DIR'] = os.getenv('BASE_DIR', '/goloop')
         temp_env['ONLY_GOLOOP'] = converter.str2bool(os.getenv('ONLY_GOLOOP', False))
         temp_env['CTX_LEVEL'] = self._get_validated_environment("CTX_LEVEL", "info", ["info", "debug", "warn"])
+        temp_env['PASS_VALIDATE'] = converter.str2bool(os.getenv('PASS_VALIDATE', True))
         # temp_env['ROLE'] = self._get_validated_environment("ROLE", "0", ["0", "1", "3"])
         return temp_env
 

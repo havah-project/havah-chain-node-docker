@@ -162,13 +162,19 @@ class ConfigureSetter:
                 exception_messages.append(seed)
                 self.cfg.logger.error(f"Failed to connect to the server. seed={seed}")
         if len(exception_messages) >= len(seeds) > 0:
-            raise ValueError(f"Cannot connect to Seed Servers 👉 {exception_messages}")
+            self._value_error_exception(f"Cannot connect to Seed Servers 👉 {exception_messages}")
 
     def _check_role(self):
         allows_roles = [ 0, 1, 3 ]
         if self.config.get('ROLE') not in allows_roles:
-            raise ValueError(f"Invalid ROLE, allows={allows_roles}")
+            self._value_error_exception(f"Invalid ROLE, role={self.config.get('ROLE')}, allows={allows_roles}")
 
+    def _value_error_exception(self, exception_message=""):
+        if self.cfg.base_env.get('PASS_VALIDATE'):
+            raise ValueError(exception_message)
+        else:
+            self.cfg.logger.error(f"{exception_message} / "
+                                  f"PASS_VALIDATE={self.cfg.base_env.get('PASS_VALIDATE')}")
     def validate_env(self):
         self._check_seed_servers()
         self._check_role()

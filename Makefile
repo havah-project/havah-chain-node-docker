@@ -1,6 +1,6 @@
 REPO_HUB = havah
 NAME = chain-node
-VERSION = v1.0.4
+VERSION = v1.1.0-rc.1
 NTP_VERSION = ntp-4.2.8p15
 IS_LOCAL = true
 BASE_IMAGE = goloop-havah
