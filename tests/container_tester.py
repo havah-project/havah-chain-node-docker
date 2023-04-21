@@ -264,7 +264,7 @@ class ContainerTestCase(unittest.TestCase):
     def control_chain_join(self):
         if self.seed_domain:
             self.log_point(f"seed = {self.seed_domain}", "white")
-            self.exec_container(f"control_chain join --seedAddress {self.seed_domain}")
+            self.exec_container(f"control_chain join --seedAddress {self.seed_domain} --platform havah")
         else:
             raise Exception(colored(f"Seed not found - {self.service}", "red"))
 
