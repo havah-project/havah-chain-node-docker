@@ -2,54 +2,100 @@
 # -*- coding: utf-8 -*-
 
 import append_parent_path
-from config.configure import Configure as CFG
-from common import output, converter, base, icon2
+from common import icon2, base
+from pawnlib.config import pawn
+from pawnlib.input import PromptWithArgument
+from pawnlib.builder.generator import generate_banner
+from pawnlib.output import is_file
+from pawnlib.typing import sys_exit, str2bool
+from rich.prompt import Confirm
 import argparse
 import sys
 import os
 
 
-def main():
-    cfg = CFG()
-    cfg.get_config(True)
-    cfg_config = cfg.config
+def get_environments():
+    environment_defaults = {
+        "BASE_DIR": "/goloop",
+        "GOLOOP_KEY_SECRET": "/goloop/config/keysecret",
+    }
+    env_dict = {}
+    for key, default_value in environment_defaults.items():
+        env_dict[key] = os.getenv(key, default_value)
+    return env_dict
 
+
+def print_banner():
+    print(generate_banner("wallet", author="jinwoo", version="0.1"))
+
+
+def main():
     parser = argparse.ArgumentParser(prog='havah_wallet')
     parser.add_argument('command', choices=["create", "get", "convert"])
     parser.add_argument('-p', '--password', type=str, help='keystore password', default=None)
-    parser.add_argument('-f', '--filename', type=str, help='keystore filename', default="keystore_test.json")
+    parser.add_argument('-f', '--filename', type=str, help='keystore filename', default=None)
     parser.add_argument('-v', '--verbose', action='count', help='verbose mode ', default=0)
-    parser.add_argument('-fs', '--force-sync', metavar='True/False', type=converter.str2bool,
+    parser.add_argument('-fs', '--force-sync', metavar='True/False', type=str2bool,
                         help='Synchronize password and keysecret ', default=False)
 
     args = parser.parse_args()
 
+    if args.verbose > 0:
+        debug = True
+        pawn.console.log(f"\nArguments = {args}")
+    else:
+        debug = False
+
+    pawn.set(
+        data=dict(
+            args=args
+        )
+    )
+    print_banner()
+
+    config_dict = get_environments()
+    config_dir = f"{config_dict.get('BASE_DIR', '/goloop')}/config"
+    keysecret_filename = config_dict.get('GOLOOP_KEY_SECRET', '/goloop/config/keysecret')
+
+    pawn.console.log(f"It will be [bold]{args.command}[/bold] wallet")
+
+    if not args.filename:
+        PromptWithArgument(
+            message="Enter a filename for wallet:",
+            default=f"{config_dir}/keystore.json",
+            invalid_message="Requires at least one character.",
+            argument="filename",
+            validate=lambda result: len(result) >= 1,
+        ).prompt()
+
+    if args.command == "create" and is_file(args.filename):
+        print(f"Already have wallet , - {args.filename}")
+        answer = Confirm.ask(prompt=f"Overwrite already existing '{args.filename}' file?", default=False)
+        if not answer:
+            sys_exit(message=f"Stopped. Answer={answer}")
+
+    if not args.password:
+        PromptWithArgument(
+            message="Enter password for wallet",
+            type="password",
+            default="",
+            # argument="password",
+            invalid_message="Requires at least one character.",
+            validate=lambda result: len(result) >= 1,
+        ).prompt()
+
     dirname, file_name = os.path.split(args.filename)
 
     if base.is_docker() and dirname == "":
-        config_dir = f"{cfg.config.get('BASE_DIR', '/goloop')}/config"
+        config_dir = f"{config_dict.get('BASE_DIR', '/goloop')}/config"
         keystore_filename = f"{config_dir}/{args.filename}"
     else:
         config_dir = None
         keystore_filename = args.filename
 
-    if args.command != "create" and not output.is_file(keystore_filename):
-        output.cprint(f"[ERROR] File not found, {keystore_filename}", "red")
+    if args.command != "create" and not is_file(keystore_filename):
+        pawn.console.log(f"File not found, {keystore_filename}", "red")
         sys.exit(127)
-
-    if args.password is None:
-        args.password = output.colored_input("Input your keystore password:", password=True)
-        if args.password is None:
-            output.cprint("[ERROR] need a password", "red")
-            sys.exit(127)
-
-    keysecret_filename = cfg_config.get('GOLOOP_KEY_SECRET', '/goloop/config/keysecret')
-
-    if args.verbose > 0:
-        debug = True
-        output.cprint(f"\nArguments = {args}")
-    else:
-        debug = False
 
     wallet_loader = icon2.WalletLoader(
         filename=args.filename,
@@ -62,14 +108,14 @@ def main():
     )
 
     if args.command == "create":
-        wallet_loader.create_wallet()
+        wallet_loader.create_wallet(force=True)
 
     elif args.command == "get":
-        output.cprint(f"Load Keystore file", "green")
+        pawn.console.log("Load Keystore file")
         wallet_loader.get_wallet()
 
     elif args.command == "convert":
-        output.cprint(f"Convert file", "green")
+        pawn.console.log("Convert file")
         wallet = wallet_loader.convert_keystore()
         if wallet:
             print(wallet.get_address())
@@ -79,4 +125,4 @@ if __name__ == '__main__':
     try:
         main()
     except KeyboardInterrupt:
-        output.cprint("\n\nKeyboardInterrupt", "red")
+        pawn.console.log("\n\nKeyboardInterrupt", "red")

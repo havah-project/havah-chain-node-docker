@@ -3,9 +3,11 @@
 
 
 import os
+from json import JSONDecodeError
+
 import requests
 import shutil
-
+from coincurve import PrivateKey
 from iconsdk.wallet.wallet import KeyWallet
 from iconsdk.wallet import wallet
 from common import output, converter
@@ -29,6 +31,64 @@ def generate_wallet(file:str, password:str) -> str:
 def get_wallet(file:str, password:str) -> wallet:
     wallet = KeyWallet.load(file, password)
     return wallet
+
+
+def call_chain_score(method="", endpoint="", params=None, score_address="cx0000000000000000000000000000000000000000", ):
+    payload = {
+        "id": 1234,
+        "jsonrpc": "2.0",
+        "method": "icx_call",
+        "params": {
+            "to": score_address,
+            "dataType": "call",
+            "data": {
+                "method": method,
+                "params": params
+            }
+        }
+    }
+    try:
+        res = requests.post(
+            url=f"{endpoint}/api/v3",
+            json=payload
+        )
+
+        try:
+            json_dict = res.json()
+        except:
+            json_dict = {}
+
+        if res.status_code == 200:
+            return json_dict
+        else:
+            if json_dict.get("error") and json_dict["error"].get("message"):
+                error_message = json_dict["error"].get("message")
+            else:
+                error_message = f"{res.status_code} / {res.text}"
+            return {"error": error_message, "text": res.text}
+            # return {"error": error_message}
+    except Exception as e:
+        return {"error": e}
+
+
+def get_validator_status(endpoint=None, address=None):
+    return call_chain_score(
+        method="getValidatorStatus",
+        endpoint=endpoint,
+        params={
+            "owner": address
+        }
+    )
+
+
+def get_validator_info(endpoint=None, address=None):
+    return call_chain_score(
+        method="getValidatorInfo",
+        endpoint=endpoint,
+        params={
+            "owner": address
+        }
+    )
 
 
 def get_preps(endpoint):
@@ -135,7 +195,7 @@ class WalletLoader:
             self.filename = f"{self.default_path}/{self.filename}"
         self.filename_info['converted_file'] = f"{self.filename_info.get('dirname')}/{self.filename_info.get('file').replace(self.filename_info.get('extension'), '.json')}"
 
-    def create_wallet(self, filename=None, password=None):
+    def create_wallet(self, filename=None, password=None, force=False):
         if filename is None:
             filename = self.filename
 
@@ -146,7 +206,7 @@ class WalletLoader:
             self.print_logging(f"filename={filename}, password={password}, keysecret={self.keysecret_filename}", "white")
 
         for dest_file in [filename, self.keysecret_filename]:
-            if self.force_sync and output.is_file(dest_file):
+            if (self.force_sync or force) and output.is_file(dest_file):
                 self.print_logging(f"Remove the '{dest_file}' file", "red") if self.debug else False
                 os.remove(dest_file)
             else:
@@ -165,7 +225,26 @@ class WalletLoader:
         self.print_logging(f"Write to file => {self.keysecret_filename}", "green")
 
         output.write_file(self.keysecret_filename, password)
-        self.print_logging(f"Stored filename={filename}, address={self.wallet.get_address()}, size={converter.get_size(filename)}", "yellow")
+        self.print_logging(f"Stored filename={filename}, "
+                           f"address={self.wallet.get_address()}, "
+                           # f"public_key={self.wallet.public_key}, "
+                           f"size={converter.get_size(filename)}",
+                           "yellow"
+                           )
+
+    def get_public_key(self, compressed=True):
+        private_key = self.wallet._KeyWallet__private_key
+        private_obj = PrivateKey(private_key)
+        return f"0x{private_obj.public_key.format(compressed=compressed).hex()}"
+
+    def print_wallet(self):
+        self.print_logging(
+            f"filename={self.filename}, "
+            f"address={self.wallet.get_address()}, "
+            f"public_key={self.get_public_key()}, "
+            f"size={converter.get_size(self.filename)}",
+            "yellow"
+        )
 
     def get_wallet(self):
         if self.keystore_type == "json":
@@ -189,7 +268,8 @@ class WalletLoader:
             self.wallet = self.from_prikey_file()
 
         if self.wallet:
-            self.print_logging(f"Successfully loaded Keystore file({self.keystore_type}), address={self.wallet.get_address()}, file={self.filename}", "white")
+            self.print_wallet()
+            # self.print_logging(f"Successfully loaded Keystore file({self.keystore_type}), address={self.wallet.get_address()}, file={self.filename}", "white")
             return self.wallet
 
     def convert_keystore(self):

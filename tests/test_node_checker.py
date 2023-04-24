@@ -101,7 +101,6 @@ class TestNodeChecker(ContainerTestCase):
 
         # self.exec_container("icon2-node", "ls", "-al")
 
-
         #
         # self.stop_container()
 

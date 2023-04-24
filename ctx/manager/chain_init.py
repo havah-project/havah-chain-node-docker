@@ -7,13 +7,13 @@ import socket_request
 from shutil import copy2
 
 from config.configure import Configure as CFG
-from common.icon2 import get_preps, get_inspect
+from common.icon2 import get_preps, get_inspect, get_validator_status, get_validator_info
 from common.output import write_yaml, open_json
 from pawnlib.config import pawn
 
 
 class ChainInit:
-    def __init__(self, use_file=True):
+    def __init__(self, use_file=True, wait_sock=True):
         self.cfg = CFG(use_file=use_file)
         self.cfg.logger = self.cfg.get_logger('chain.log')
         self.config = self.cfg.config
@@ -25,7 +25,9 @@ class ChainInit:
             logger=self.cfg.logger,
             retry=3
         )
-        self.chain_socket_checker()
+        self.wait_sock = wait_sock
+        if self.wait_sock:
+            self.chain_socket_checker()
         self.base_dir = self.config.get('BASE_DIR')
 
     def chain_socket_checker(self, ):
@@ -67,29 +69,33 @@ class ChainInit:
                 )
                 self.cfg.logger.info(f"{rs}")
 
-    def get_my_info(self):
-        res = get_preps(self.config.get('ENDPOINT'))
-        prep_info = {}
-        if res.get('error'):
-            self.cfg.logger.error(f"get_preps() {res.get('error')}")
+    def get_my_address(self):
+        try:
+            keystore_file = open_json(self.config['GOLOOP_KEY_STORE'])
+            my_address = keystore_file.get("address")
+        except Exception as e:
+            self.cfg.logger.error(f"[ERROR] Load keystore - {e}")
+            my_address = None
+
+        return my_address
+
+    def get_my_info(self, address=None):
+        if not address:
+            my_address = self.get_my_address()
         else:
-            try:
-                keystore_file = open_json(self.config['GOLOOP_KEY_STORE'])
-                my_address = keystore_file.get("address")
-            except Exception as e:
-                self.cfg.logger.error(f"[ERROR] Load keystore - {e}")
-                my_address = None
+            my_address = address
+        role = self.config.get('ROLE')
+        res = get_validator_info(self.config.get('ENDPOINT'), address)
+        prep_info = res.get("result")
 
-            if my_address:
-                for prep in res['result']['preps']:
-                    if prep['nodeAddress'] == my_address:
-                        prep_info = prep
-
+        if res.get('error'):
+            self.cfg.logger.error(f"get_validator_info() error='{res.get('error')}'")
+        else:
             if prep_info:
-                self.cfg.logger.info(f"[CC] P-Rep Info name: {prep_info.get('name')}, grade: {prep_info.get('grade')}")
+                self.cfg.logger.info(f"[CC] Validator Info name: '{prep_info.get('name')}', grade: '{prep_info.get('grade')}', role: {role}")
             else:
                 self.cfg.logger.error(f"[CC] It's not a registered keystore(wallet). "
-                                      f"check your keystore -> {my_address}")
+                                      f"Your keystore address is -> {my_address}")
         return {}
 
     def set_configure(self, wait_state=True):

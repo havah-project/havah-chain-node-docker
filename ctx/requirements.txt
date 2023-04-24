@@ -37,4 +37,5 @@ boto3==1.20.42
 ffcount==0.2.1
 cryptography==35.0.0
 pawnlib==0.1.62
+secp256k1==0.14.0
 

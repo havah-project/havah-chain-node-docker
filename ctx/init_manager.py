@@ -20,7 +20,7 @@ class InitManager:
     def run(self, ):
         self.print_banner()
         self.print_resources()
-        self.cfg.logger.info(f"[INIT_CONFIG] Initializing Configuration")
+        self.cfg.logger.info("[INIT_CONFIG] Initializing Configuration")
         for key, value in self.cfg.base_env.items():
             self.cfg.logger.info(f"[INIT_CONFIG] {key} = {value} ({type(value).__name__})")
 
@@ -58,7 +58,6 @@ class InitManager:
             ip_type = "PUBLIC"
         return ip_type
 
-
     def print_banner(self):
         v_info = self.cfg.get_version()
         config_version = self.cfg.config.get('version')
@@ -79,7 +78,6 @@ class InitManager:
         self.cfg.logger.info("░  ░░ ░  ░   ▒     ░░    ░   ▒    ░  ░░ ░")
         self.cfg.logger.info("░  ░  ░      ░  ░   ░        ░  ░ ░  ░  ░")
         self.cfg.logger.info("░")
-
 
     def print_resources(self):
         try:
