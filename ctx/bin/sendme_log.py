@@ -25,10 +25,7 @@ region_info = {
     "Seoul": ".s3",
     "Tokyo": "-jp.s3",
     "Virginia": "-va.s3",
-    "Hongkong": "-hk.s3.ap-east-1",
-    # "Singapore": "-sg.s3",
-    # "Mumbai"   : "-mb.s3",
-    # "Frankfurt": "-ff.s3",
+    "Frankfurt": "-ff.s3",
 }
 
 
@@ -41,7 +38,7 @@ def find_fastest_region(verbose=0):
     spinner.start()
 
     for region_name, region_code in region_info.items():
-        url = f'https://icon-leveldb-backup{region_code}.amazonaws.com/route_check'
+        url = f'https://havah-logs{region_code}.amazonaws.com/route_check'
         exec_func = "get_connect_time"
         exec_args = (f"{url}", region_name)
         results[region_cnt] = {}
@@ -92,7 +89,7 @@ def multi_part_upload_with_s3(filename=None, key_path=None, bucket=None, upload_
         enc_keys = {}
 
     start_time = default_timer()
-    bucket_name_prefix = "prep-logs"
+    bucket_name_prefix = "havah-logs"
     key, sec = catchMeIfYouCan(encoded_text=enc_keys.get('aawwss_text'), encode_key=enc_keys.get('encode_key'))
     aaa_env, sss_env = catchMeIfYouCan(encoded_text=enc_keys.get('aawwss_env'), encode_key=enc_keys.get('encode_key'))
     os.environ[aaa_env] = key
@@ -258,7 +255,7 @@ class SendLog:
         if answer == "y":
             if self.region:
                 self.region_info = {
-                    'url': f'https://icon-leveldb-backup.{region_info.get(self.region)}.amazonaws.com/route_check',
+                    'url': f'https://havah-logs.{region_info.get(self.region)}.amazonaws.com/route_check',
                     'time': 0,
                     'name': self.region,
                     'text': 'OK\n',
@@ -363,7 +360,7 @@ class SendLog:
 
     def set_upload_filename(self, name=None):
         if name is None:
-            name = input("Enter your prep-name: ")
+            name = input("Enter your validator-name: ")
         self.upload_filename = f"HAVAH-{name}-{base.get_public_ipaddr()}-{converter.todaydate('file')}.zip"
 
 
@@ -381,11 +378,11 @@ def banner():
 
 if __name__ == '__main__':
     enc_keys = {
-        "encode_key": b"ZhiS-yXbkk_KPbGkqIw85FX2aHRhSBrG-yVOQiTiZeg=",
-        "aawwss_text": b"gAAAAABeIXCBukgBLiLfCPt8xD-zWLHxc6OfMfmZjsR02mY0CGYA_3mdevoURb_BRs_19nQdUEDNEpNag9xawP9m7Ug1CWNKDdha5_2J36AL9CG-I9"
-                       b"-9wHaUGD1GUuDfdxitfLcebKMtcy9VGDqr8A8vrYLeEb8NDQ== ",
-        "aawwss_env": b"gAAAAABeIXy9YdGvJCmmxbBTnsbb-APE1RCKiYvciOYXMU-EXrXhjlvg6XJgb38MyY0cRzMM3TfiIyXrNbDTntA7R9cY_"
-                      b"EWuSuCcdK9LlnKVuL2qc_ITkVMQ5lgl-gNcgKCrqQS7xMTB"
+        "encode_key": b"8cZDa0K3JonGRMVM6pqo3LVuGiKUdskMtlquHeGpfs4=",
+        "aawwss_text": b"gAAAAABkR4t2OP6TFkjclgzi3Yt2TPVPJq4b00mCLpMz4QjSm-rf4DK9RMFLps5Rh4KflwwWVmq3TBSKTnRRKZR4WNFRn"
+                       b"6kZoyztrxf0AJ-wgJyP72c4PzVyxXrMuqOiE_M0s1v1DkqNA8C6Pmfjs8BbtzpfaTZ12w==",
+        "aawwss_env": b"gAAAAABkR4t2Vdyu8-ZRNyg_kqatamEY_F7Vnx9wRhqbQbsDDgeXvhd9W_rZDzKVGLLEFmTSrpVzBaA-D6SWtDSaVTibom"
+                      b"WtOB7HcsvJn3HcD5pQIXD-NqWvl5pv9alJOpa9lTY9Ipv1"
     }
     parser = get_parser()
     args = parser.parse_args()
@@ -407,7 +404,7 @@ if __name__ == '__main__':
     if args.name:
         name = args.name
     else:
-        name = input("Enter your prep-name: ")
+        name = input("Enter your validator-name: ")
 
     upload_filename = f"HAVAH-{name}-{base.get_public_ipaddr()}-{converter.todaydate('file')}.zip"
 
