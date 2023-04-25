@@ -208,7 +208,8 @@ build: make_build_args
 		docker build $(DOCKER_BUILD_OPTION) -f Dockerfile \
 			$(shell cat BUILD_ARGS) \
 			-t $(REPO_HUB)/$(NAME):$(TAGNAME) .
-		docker rmi -f goloop-icon
+		# docker rmi -f goloop-icon
+		docker rmi -f $(BASE_IMAGE)
 		$(call colorecho, "\n\nSuccessfully build '$(REPO_HUB)/$(NAME):$(TAGNAME)'")
 		@echo "==========================================================================="
 		@docker images | grep  $(REPO_HUB)/$(NAME) | grep $(TAGNAME)
@@ -218,10 +219,12 @@ show_labels: make_build_args
 		docker $(REPO_HUB)/$(NAME):$(TAGNAME) | jq .[].Config.Labels
 
 build_ci: make_build_args change_version
-		cd $(GOLOOP_PATH) && $(MAKE) goloop-icon-image
+		# cd $(GOLOOP_PATH) && $(MAKE) goloop-icon-image
+		cd $(GOLOOP_PATH) && $(MAKE) $(GOLOOP_BUILD_CMD)
 		docker build $(shell cat BUILD_ARGS) -f Dockerfile \
 		-t $(REPO_HUB)/$(NAME):$(TAGNAME) .
-		docker rmi -f goloop-icon
+		# docker rmi -f goloop-icon
+		docker rmi -f $(BASE_IMAGE)
 
 clean:
 		docker images | egrep '^goloop/(.*)-deps' | awk '{print $$3}' | xargs -n 1 docker rmi -f

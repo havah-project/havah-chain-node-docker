@@ -5,6 +5,7 @@ import os
 import time
 import asyncio
 import subprocess
+import ntplib
 
 from datetime import datetime
 from config.configure import Configure as CFG
@@ -36,53 +37,48 @@ class NTPDaemon:
         return datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]
 
     async def sync_time(self, ):
-        self.cfg.logger.info("NTP_SYNC Start")
         while True:
-            self.cfg.logger.info(f"Local Time : {self.localtime()}")
-            self.cfg.logger.info(f"UTC Time   : {self.utctime()}")
-            best_ntp = self.config.get('NTP_SERVER', False)
-            if best_ntp is False:
+            best_ntp = self.config.get('NTP_SERVER', None)
+            if best_ntp is None:
                 try:
-                    best_ntp = self.compare_ntp()[0][0]
+                    best_ntp = self.get_best_ntp_server()
                 except Exception as e:
                     self.cfg.logger.error(f"[NTP] got error best_ntp = {e}")
                     best_ntp = None
-            self.cfg.logger.info(f"[NTP] Best NTP Server is {best_ntp}")
+                self.cfg.logger.info(f"[NTP] Best responsive NTP server is [ {best_ntp} ]")
             if best_ntp:
+                self.cfg.logger.info(f"[NTP] Time synchronization Start. ({best_ntp})")
                 try:
                     code = os.system(f"ntpdate {best_ntp}")
                     if int(code) == 0:
-                        self.cfg.logger.info("[NTP] Time sync success!")
+                        self.cfg.logger.info(f"[NTP] Local Time : {self.localtime()}")
+                        self.cfg.logger.info(f"[NTP] UTC Time   : {self.utctime()}")
+                        self.cfg.logger.info("[NTP] Time synchronization succeeded!")
                     else:
                         self.cfg.logger.error("[NTP] Failed! Check NTP Server or Your Network or SYS_TIME permission.")
                 except Exception as e:
                     self.cfg.logger.error(f"[NTP] Failed! Check NTP daemon. {e}")
             await asyncio.sleep(self.check_time * 60)
 
-    def compare_ntp(self, ):
-        if self.config.get('NTP_SERVERS'):
-            ntp_servers = self.config.get('NTP_SERVERS')
-        else:
-            ntp_servers = self.config.get('NTP_SERVERS')
-
+    def get_best_ntp_server(self, ):
+        ntp_servers = self.config.get('NTP_SERVERS', None)
+        min_res_time = None
+        selected_server = None
         if ntp_servers:
-            try:
-                cmd = "nmap -sU -p 123 " + " ".join(ntp_servers.split(",")) + " | grep up -B 1"
-                self.cfg.logger.info(f"compare_cmd={cmd}")
-                rs, _ = self.ntp_run(cmd)
-                rs_dict = dict()
-                for i, r in enumerate(rs):
-                    for ntp in ntp_servers.split(","):
-                        if ntp in r:
-                            if len(rs) == i+1:
-                                break
-                            rs_dict[ntp] = float(re.findall(self.chk, rs[i+1])[0])
-                self.cfg.logger.info("NTP Rank")
-                for key, val in rs_dict.items():
-                    self.cfg.logger.info(f"{key} - {val}")
-                return sorted(rs_dict.items(), key=(lambda x: x[1]))
-            except Exception as e:
-                self.cfg.logger.error(f"[NTP] NTP error - {e}")
+            self.cfg.logger.info(f"[NTP] NTP Server list : {ntp_servers.split(',')}")
+            for ntp_server in ntp_servers.split(","):
+                try:
+                    client = ntplib.NTPClient()
+                    res = client.request(ntp_server, version=3, timeout=1)
+                    res_time = res.tx_time - res.orig_time
+                    # self.cfg.logger.info(f"[NTP] {ntp_server} : \t{res_time}")
+                    if min_res_time is None or res_time < min_res_time:
+                        min_res_time = res_time
+                        selected_server = ntp_server
+                except:
+                    self.cfg.logger.error(f"[NTP] {ntp_server} is unresponsive or has timed out")
+                    pass
+            return selected_server
         else:
             self.cfg.logger.error(f"[NTP] env={self.config.get('NTP_SERVERS')}, "
                                   f"COMPOSE_ENV={self.config.get('NTP_SERVERS')}")
