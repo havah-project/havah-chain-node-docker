@@ -1,7 +1,7 @@
 #!/usr/bin/with-contenv bash
 
 source /ctx/bin/functions.sh
-logging "[init_manager] ICON2 Configuration"
+logging "[init_manager] HAVAH Configuration"
 
 cd /ctx
 python3 init_manager.py

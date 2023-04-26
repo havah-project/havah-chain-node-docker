@@ -53,13 +53,19 @@ class Configure:
         if not os.path.isdir(self.log_dir):
             os.mkdir(self.log_dir)
 
-        if self.base_env['ONLY_GOLOOP'] is True:
-            self.loggers = Null()
-            self.logger = Null()
-            return
+        # if self.base_env['ONLY_GOLOOP'] is True:
+        #     self.loggers = Null()
+        #     self.logger = Null()
+        #     return
 
         self.loggers = {'booting.log': self.init_logger('booting.log', log_level=self.base_env['CTX_LEVEL'], log_stdout=True)}
         self.logger = self.get_logger('booting.log')
+
+        if self.base_env['ONLY_GOLOOP'] is True:
+            # self.loggers = Null()
+            # self.logger = Null()
+            return
+
         self.get_config(use_file)
         sys.excepthook = self.exception_handler
 
@@ -121,6 +127,9 @@ class Configure:
         temp_env['ONLY_GOLOOP'] = converter.str2bool(os.getenv('ONLY_GOLOOP', False))
         temp_env['CTX_LEVEL'] = self._get_validated_environment("CTX_LEVEL", "info", ["info", "debug", "warn"])
         temp_env['PASS_VALIDATE'] = converter.str2bool(os.getenv('PASS_VALIDATE', True))
+        temp_env['USE_HEALTH_CHECK'] = converter.str2bool(os.getenv('USE_HEALTH_CHECK', False))
+        temp_env['USE_NTP_SYNC'] = converter.str2bool(os.getenv('USE_NTP_SYNC', False))
+        temp_env['GOLOOP_KEY_STORE'] = os.getenv('GOLOOP_KEY_STORE', "/goloop/config/keystore.json")
         # temp_env['ROLE'] = self._get_validated_environment("ROLE", "0", ["0", "1", "3"])
         return temp_env
 
@@ -132,6 +141,13 @@ class Configure:
         if allows and _env_value not in allows:
             raise ValueError(f"It's not allowed value for the '{key}' environment variable, input='{_env_value}', allows={allows} ")
         return _env_value
+
+    def get_base_config(self, env_key):
+        if self.config.get(env_key, '__NOT_DEFINED__') != '__NOT_DEFINED__':
+            value = self.config.get(env_key)
+        else:
+            value = self.base_env.get(env_key, '__NOT_DEFINED__')
+        return value
 
     def get_config(self, use_file):
         service_url = f'{self.base_env["CONFIG_URL"]}/{self.base_env["SERVICE"]}'

@@ -130,7 +130,7 @@ class ConfigureSetter:
         base_dir = self.config.get('BASE_DIR')
 
         # Goloop DB PATH
-        if self.config.get('GOLOOP_NODE_DIR') :
+        if self.config.get('GOLOOP_NODE_DIR'):
             db_path = self.config['GOLOOP_NODE_DIR']
         else:
             default_db_path = 'data'
