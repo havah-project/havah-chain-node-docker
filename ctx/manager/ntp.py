@@ -38,14 +38,17 @@ class NTPDaemon:
 
     async def sync_time(self, ):
         while True:
-            best_ntp = self.config.get('NTP_SERVER', None)
+            best_ntp = self.cfg.get_base_config('NTP_SERVER')
             if best_ntp is None:
                 try:
                     best_ntp = self.get_best_ntp_server()
                 except Exception as e:
                     self.cfg.logger.error(f"[NTP] got error best_ntp = {e}")
                     best_ntp = None
-                self.cfg.logger.info(f"[NTP] Best responsive NTP server is [ {best_ntp} ]")
+                if best_ntp:
+                    self.cfg.logger.info(f"[NTP] Best responsive NTP server is [ {best_ntp} ]")
+                else:
+                    self.cfg.logger.error(f"[NTP][ERROR] Cannot found NTP servers. NTP_SERVERS={self.config.get('NTP_SERVERS', None)}")
             if best_ntp:
                 self.cfg.logger.info(f"[NTP] Time synchronization Start. ({best_ntp})")
                 try:
@@ -61,7 +64,7 @@ class NTPDaemon:
             await asyncio.sleep(self.check_time * 60)
 
     def get_best_ntp_server(self, ):
-        ntp_servers = self.config.get('NTP_SERVERS', None)
+        ntp_servers = self.cfg.get_base_config('NTP_SERVERS')
         min_res_time = None
         selected_server = None
         if ntp_servers:
@@ -80,7 +83,7 @@ class NTPDaemon:
                     pass
             return selected_server
         else:
-            self.cfg.logger.error(f"[NTP] env={self.config.get('NTP_SERVERS')}, "
+            self.cfg.logger.error(f"[NTP] ntp_servers is none, env={self.config.get('NTP_SERVERS')}, "
                                   f"COMPOSE_ENV={self.config.get('NTP_SERVERS')}")
 
     def ntp_run(self, cmd):

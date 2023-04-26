@@ -130,6 +130,8 @@ class Configure:
         temp_env['USE_HEALTH_CHECK'] = converter.str2bool(os.getenv('USE_HEALTH_CHECK', False))
         temp_env['USE_NTP_SYNC'] = converter.str2bool(os.getenv('USE_NTP_SYNC', False))
         temp_env['GOLOOP_KEY_STORE'] = os.getenv('GOLOOP_KEY_STORE', "/goloop/config/keystore.json")
+        temp_env['NTP_SERVERS'] = os.getenv('NTP_SERVERS', "time.google.com,time.cloudflare.com,time.facebook.com,time.apple.com,time.euro.apple.com")
+        temp_env['NTP_SERVER'] = os.getenv('NTP_SERVER', None)
         # temp_env['ROLE'] = self._get_validated_environment("ROLE", "0", ["0", "1", "3"])
         return temp_env
 
