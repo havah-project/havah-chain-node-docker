@@ -33,7 +33,7 @@ def get_wallet(file:str, password:str) -> wallet:
     return wallet
 
 
-def call_chain_score(method="", endpoint="", params=None, score_address="cx0000000000000000000000000000000000000000", ):
+def call_chain_score(method="", endpoint="", params=None, score_address="cx0000000000000000000000000000000000000000", timeout=3):
     payload = {
         "id": 1234,
         "jsonrpc": "2.0",
@@ -50,7 +50,8 @@ def call_chain_score(method="", endpoint="", params=None, score_address="cx00000
     try:
         res = requests.post(
             url=f"{endpoint}/api/v3",
-            json=payload
+            json=payload,
+            timeout=timeout,
         )
 
         try:
@@ -71,23 +72,25 @@ def call_chain_score(method="", endpoint="", params=None, score_address="cx00000
         return {"error": e}
 
 
-def get_validator_status(endpoint=None, address=None):
+def get_validator_status(endpoint=None, address=None, timeout=3):
     return call_chain_score(
         method="getValidatorStatus",
         endpoint=endpoint,
         params={
             "owner": address
-        }
+        },
+        timeout=timeout
     )
 
 
-def get_validator_info(endpoint=None, address=None):
+def get_validator_info(endpoint=None, address=None, timeout=3):
     return call_chain_score(
         method="getValidatorInfo",
         endpoint=endpoint,
         params={
             "owner": address
-        }
+        },
+        timeout=timeout
     )
 
 
@@ -225,12 +228,8 @@ class WalletLoader:
         self.print_logging(f"Write to file => {self.keysecret_filename}", "green")
 
         output.write_file(self.keysecret_filename, password)
-        self.print_logging(f"Stored filename={filename}, "
-                           f"address={self.wallet.get_address()}, "
-                           # f"public_key={self.wallet.public_key}, "
-                           f"size={converter.get_size(filename)}",
-                           "yellow"
-                           )
+        self.print_logging(f"Stored keystore file" "yellow")
+        self.print_wallet()
 
     def get_public_key(self, compressed=True):
         private_key = self.wallet._KeyWallet__private_key
@@ -252,7 +251,9 @@ class WalletLoader:
                 keysecret = output.open_file(self.keysecret_filename)
                 if keysecret != self.password:
                     # self.print_logging(f"keysecret({keysecret}) and password({self.password}) are different", "red")
-                    self.print_logging(f"keysecret and password are different", "red")
+                    self.print_logging("keysecret and password are different", "red")
+                    from pawnlib.config import pawn
+                    pawn.console.debug(f"keysecret='{keysecret}', password='{self.password}'")
             keystore = output.open_file(self.filename)
             self.wallet = KeyWallet.load(self.filename, self.password)
             if len(keystore) != 0:

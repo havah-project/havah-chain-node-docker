@@ -11,6 +11,7 @@ from common.logger import CustomLog as CL
 from common import converter
 from termcolor import cprint
 from devtools import debug
+from pawnlib.typing import Null
 
 def get_local_ip():
     s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -51,7 +52,10 @@ class Configure:
         self.log_dir = f"{self.base_env['BASE_DIR']}/logs"
         if not os.path.isdir(self.log_dir):
             os.mkdir(self.log_dir)
+
         if self.base_env['ONLY_GOLOOP'] is True:
+            self.loggers = Null()
+            self.logger = Null()
             return
 
         self.loggers = {'booting.log': self.init_logger('booting.log', log_level=self.base_env['CTX_LEVEL'], log_stdout=True)}

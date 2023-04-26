@@ -33,7 +33,9 @@ from set_tester import (
     goloop_chain_join, goloop_chain_leave, goloop_chain_ls,
     ContainerTestCase
 )
-
+# from container_tester import (
+#     set_os_env, ContainerTestCase, TestRunner
+# )
 
 FILE_PATH = os.path.dirname(os.path.realpath(__file__))
 
@@ -54,7 +56,7 @@ def is_responsive(url):
 class TestNodeChecker(ContainerTestCase):
     # docker_compose_file = "sdsd"
 
-    def __init__(self, value):
+    def __init__(self,):
         super().__init__()
 
     def test_check_env(self, ):

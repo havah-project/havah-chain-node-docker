@@ -69,11 +69,11 @@ ifeq ($(MAKECMDGOALS) , bash)
 #	CC_DEBUG:="true"
 	IS_AUTOGEN_CERT:=true
     PRIVATE_KEY_FILENAME:="YOUR_KEYSTORE_FILENAME.der"
-    NGINX_THROTTLE_BY_IP_VAR:="\$$binary_remote_addr"
 	LOCAL_TEST:="true"
 #	FASTEST_START:="true"
 	NTP_REFRESH_TIME:="30"
 	MAIN_TIME_OUT:="30"
+
 	ROLE:=0
 	GOLOOP_CONSOLE_LEVEL:="debug"
 	GOLOOP_LOG_LEVEL:="debug"
@@ -83,6 +83,13 @@ ifeq ($(MAKECMDGOALS) , bash)
 	DOCKER_LOG_STDOUT:="true"
 #	GOLOOP_NODE_SOCK:="/goloop/cli.sock"
 #	GOLOOP_EE_SOCKET:="/goloop/ee.sock"
+
+	SEEDS:='20.20.5.116:7100,20.20.5.117:7100,20.20.5.122:7100,20.20.5.123:7100,20.20.5.124:7100'
+	CID:='0xa131c'
+	KEY_PASSWORD:='havah'
+	ONLY_GOLOOP:='true'
+
+
 
 endif
 

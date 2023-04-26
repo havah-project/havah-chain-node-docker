@@ -79,7 +79,7 @@ def main():
             message="Enter password for wallet",
             type="password",
             default="",
-            # argument="password",
+            argument="password",
             invalid_message="Requires at least one character.",
             validate=lambda result: len(result) >= 1,
         ).prompt()
@@ -94,7 +94,7 @@ def main():
         keystore_filename = args.filename
 
     if args.command != "create" and not is_file(keystore_filename):
-        pawn.console.log(f"File not found, {keystore_filename}", "red")
+        pawn.console.log(f"[red]File not found, {keystore_filename}")
         sys.exit(127)
 
     wallet_loader = icon2.WalletLoader(
@@ -125,4 +125,4 @@ if __name__ == '__main__':
     try:
         main()
     except KeyboardInterrupt:
-        pawn.console.log("\n\nKeyboardInterrupt", "red")
+        pawn.console.log("[red]\n\nKeyboardInterrupt")

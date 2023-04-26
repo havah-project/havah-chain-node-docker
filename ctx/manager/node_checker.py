@@ -12,18 +12,39 @@ from datetime import datetime
 from ping3 import ping
 
 from config.configure import Configure as CFG
-from common.output import send_slack
+from common.output import send_slack, open_json
+from common.icon2 import call_chain_score, get_validator_status, get_validator_info
+from pawnlib.utils import append_http
+from pawnlib.config import pawn
+from pawnlib.typing import convert_dict_hex_to_int, dict_to_line
 
 
 class NodeChecker:
     def __init__(self, use_file=True):
-        self.oc = OSChecker()
-        self.pc = PeerChecker()
         self.cfg = CFG(use_file=use_file)
         self.config = self.cfg.config
+
+        self._base_url = ""
+        self._my_wallet_address = ""
+
+        self.initialize()
+        self.oc = OSChecker()
+        self.pc = PeerChecker()
+        self.validator_checker = ValidatorChecker(owner_address=self._my_wallet_address, cfg=self.cfg)
+
         self.unix_socket = self.config.get("GOLOOP_NODE_SOCK", "/goloop/data/cli.sock")
         self.ctl = socket_request.ControlChain(unix_socket=self.unix_socket)
         self.cfg.logger = self.cfg.get_logger('health.log')
+
+    def get_my_address(self):
+        try:
+            keystore_file = open_json(self.config['GOLOOP_KEY_STORE'])
+            self._my_wallet_address = keystore_file.get("address")
+        except Exception as e:
+            self.cfg.logger.error(f"[ERROR] Load keystore - {e}")
+            self._my_wallet_address = None
+
+        return self._my_wallet_address
 
     def get_peer_goloop(self, peer_info):
         temp_dict = dict()
@@ -59,13 +80,25 @@ class NodeChecker:
                 rpc_rs.append(peer_ip_list[i])
         return p2p_rs, rpc_rs
 
+    def get_rpc_endpoint(self, node_ip='localhost', path=""):
+        _p2p_port = int(self.config.get('GOLOOP_P2P_LISTEN', '8080').split(':')[-1])
+        _rpc_port = int(self.config.get('GOLOOP_RPC_ADDR', '9080').split(':')[-1])
+        return append_http(f"{node_ip}:{_rpc_port}{path}")
+
+    def initialize(self):
+        self._base_url = self.get_rpc_endpoint()
+        self.get_my_address()
+
     async def check_node(self, node_ip='localhost'):
+        self.cfg.logger.info(f"Starting check node. interval={self.config.get('CHECK_INTERVAL')}")
         _block = [0, 0]
         _peer_stack = 0
         _block_stack = 0
         _stack_limit = int(self.config.get('CHECK_STACK_LIMIT'))
+
         _p2p_port = int(self.config.get('GOLOOP_P2P_LISTEN', '8080').split(':')[-1])
         _rpc_port = int(self.config.get('GOLOOP_RPC_ADDR', '9080').split(':')[-1])
+
         _endpoint = '/admin/chain/icon_dex'
         _check_peer_stack = self.config.get('CHECK_PEER_STACK', 6)
         _check_block_stack = self.config.get('CHECK_BLOCK_STACK', 10)
@@ -73,6 +106,7 @@ class NodeChecker:
         _check_timeout = self.config.get('CHECK_TIMEOUT', 10)
         while True:
             peer_rs = self.pc.peer_status(f"http://{node_ip}:{_rpc_port}{_endpoint}", self.config.get('CHECK_TIMEOUT', _check_timeout))
+            # peer_rs = self.pc.peer_status(f"{self._base_url}{_endpoint}", self.config.get('CHECK_TIMEOUT', _check_timeout))
             if not peer_rs:
                 _peer_stack += 1
                 if not _peer_stack % self.config.get('CHECK_PEER_STACK', _check_peer_stack):
@@ -84,7 +118,7 @@ class NodeChecker:
                                    msg_level='error'
                                    )
             else:
-                self.cfg.logger.info(f"Node API response={self.get_peer_goloop(peer_rs)}")
+                self.cfg.logger.info(f"Node API response: {dict_to_line(self.get_peer_goloop(peer_rs), end_separator=', ')}")
                 if _peer_stack >= self.config.get('CHECK_PEER_STACK', _check_peer_stack):
                     self.cfg.logger.info(f"Node API=OK,stack_count={_peer_stack},Time={int(_peer_stack) * int(self.config.get('CHECK_PEER_STACK', _check_peer_stack))} sec)")
                     if self.config.get('SLACK_WH_URL'):
@@ -132,11 +166,59 @@ class NodeChecker:
                                msg_level='warning'
                                )
                 sys.exit(127)
-            await asyncio.sleep(self.config.get('CHECK_TIMEOUT', _check_interval))
+            await asyncio.sleep(_check_interval)
+
+    async def check_validator_status(self):
+        _check_interval = self.config.get('CHECK_INTERVAL', 10)
+        self.cfg.logger.info(f"Starting validator status, interval={_check_interval}")
+        _previous_status = {}
+        _preventing_duplicate_send_count = 0
+
+        while True:
+            _status = self.validator_checker.fetch_status(url=self._base_url)
+            _status = convert_dict_hex_to_int(_status)
+
+            if _previous_status and _status:
+                added, removed, modified, same = dict_compare(_previous_status, _status)
+                self.cfg.logger.info(f"added={added}, removed={removed}, modified={modified}")
+
+                if modified:
+                    message = ""
+                    for changed_key, values in modified.items():
+                        message += f"Changed '{changed_key}' status: {values[0]}=>{values[1]}"
+                    self.cfg.logger.info(message)
+
+                    _preventing_duplicate_send_count += 1
+
+                    # send_slack(self.config['SLACK_WH_URL'],
+                    #            self.result_formatter(f"Changed. PEER STACK={_peer_stack}, BLOCK STACK={_block_stack}, Block={_block[-1]})"),
+                    #            'Node shutdown',
+                    #            msg_level='warning'
+                    #            )
+
+            status = dict_to_line(
+                _status,
+                end_separator=", "
+            )
+            self.cfg.logger.info(f"Validator status response: {status}")
+            _previous_status = _status
+            await asyncio.sleep(_check_interval)
+        # return res
 
     def run(self, ):
         self.check_node()
+        # self.check_validator_status()
 
+
+def dict_compare(d1, d2):
+    d1_keys = set(d1.keys())
+    d2_keys = set(d2.keys())
+    shared_keys = d1_keys.intersection(d2_keys)
+    added = d1_keys - d2_keys
+    removed = d2_keys - d1_keys
+    modified = {o : (d1[o], d2[o]) for o in shared_keys if d1[o] != d2[o]}
+    same = set(o for o in shared_keys if d1[o] == d2[o])
+    return added, removed, modified, same
 
 class OSChecker:
     def __init__(self, ):
@@ -182,6 +264,42 @@ class PeerChecker:
                 if isinstance(res, list):
                     res = res[0]
             return res
+
+
+class ValidatorChecker:
+    def __init__(self, owner_address="", cfg=None):
+        self._owner_address = owner_address
+        self.cfg = cfg
+        self._status = {}
+
+    def fetch_status(self, url, timeout=3):
+        self.cfg.logger.debug(f"fetch validator status with {self._owner_address}")
+        # _validator_status = get_validator_status(endpoint=url, timeout=timeout, address=self._owner_address)
+        # if not _validator_status.get('error') and _validator_status.get('result'):
+        #     _validator_status = _validator_status.get('result')
+        #
+        # pawn.console.log(_validator_status)
+        self.fetch_validator_info(url, timeout)
+        self.fetch_validator_status(url, timeout)
+        self.remove_unnecessary_keys_in_status()
+        return self._status
+
+    def fetch_validator_info(self, url, timeout):
+        _validator_info = get_validator_info(endpoint=url, timeout=timeout, address=self._owner_address)
+        if not _validator_info.get('error') and _validator_info.get('result'):
+            self._status.update(_validator_info.get('result', {}))
+
+    def fetch_validator_status(self, url, timeout):
+        _validator_status = get_validator_status(endpoint=url, timeout=timeout, address=self._owner_address)
+        if not _validator_status.get('error') and _validator_status.get('result'):
+            self._status.update(_validator_status.get('result', {}))
+
+    def remove_unnecessary_keys_in_status(self, remove_keys=None):
+        if not remove_keys:
+            remove_keys = ["node", "node", "nodePublicKey", "owner", "url"]
+        for key in remove_keys:
+            if self._status.get(key, "__NOT_DEFINED__") != "__NOT_DEFINED__":
+                del self._status[key]
 
 
 if __name__ == '__main__':

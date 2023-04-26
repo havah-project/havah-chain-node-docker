@@ -9,6 +9,7 @@ from manager.chain_init import ChainInit
 from manager.node_checker import NodeChecker
 from manager.ntp import NTPDaemon
 
+
 cfg = CFG(use_file=True)
 if cfg.base_env['ONLY_GOLOOP'] is True:
     while True:
@@ -29,6 +30,7 @@ if cfg.config.get('USE_HEALTH_CHECK'):
     cfg.logger.info("Start NodeChecker()")
     nc = NodeChecker()
     async_command_list.append(nc.check_node())
+    async_command_list.append(nc.check_validator_status())
 else:
     cfg.logger.info(f"Disabled NodeChecker(), USE_HEALTH_CHECK={cfg.config.get('USE_HEALTH_CHECK')}")
 
@@ -45,6 +47,7 @@ async def run_managers(command_list=None):
         await asyncio.wait(command_list)
 
 if len(async_command_list) > 0:
+    cfg.logger.info(f"async_command_list{async_command_list}")
     asyncio.run(run_managers(async_command_list))
 else:
     while True:
