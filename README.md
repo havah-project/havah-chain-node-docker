@@ -20,7 +20,8 @@ Network: minimum 1Gbps, recommend 2Gbps +
 
 External Communications 
 TCP 7100: TCP port used for peer-to-peer connection between havah nodes.
-TCP 9000: JSON-RPC or RESTful API port serving application requests.Validators must allow TCP connections to port 7100 and 9000 of an external host. ( Use 0.0.0.0/0 for a source from any network )
+TCP 9000: JSON-RPC or RESTful API port serving application requests.
+Validators must allow TCP connections to port 7100 and 9000 of an external host. ( Use 0.0.0.0/0 for a source from any network )
 ```
 
 ## Getting started
@@ -118,6 +119,7 @@ The directories(data, config, icon, logs …) are created by docker engine, but 
 | NTP_REFRESH_TIME   |                        | int  | false    | ntp refresh time                                                                 |
 | SLACK_WH_URL       |                        | str  | false    | slack web hook url - If a problem occurs, you can receive an alarm with a slack. |
 | USE_HEALTH_CHECK   | True                   | bool | false    | Whether to use health check                                                      |
+| USE_VALIDATOR_HEALTH_CHECK| False           | bool | false    | Whether to use validator health check                                            |
 | CHECK_TIMEOUT      | 10                     | int  | false    | sec - TIMEOUT when calling REST API for monitoring                               |
 | CHECK_PEER_STACK   | 6                      | int  | false    | sec - Stack value to check the peer for monitoring.                              |
 | CHECK_BLOCK_STACK  | 10                     | int  | false    | sec - Stack value to check the block for monitoring.                             |
