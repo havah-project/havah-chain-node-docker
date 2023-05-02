@@ -1,6 +1,6 @@
 REPO_HUB = havah
 NAME = chain-node
-VERSION = v1.1.0-rc.4
+VERSION = v1.1.0-rc.5
 NTP_VERSION = ntp-4.2.8p15
 IS_LOCAL = true
 BASE_IMAGE = goloop-havah
@@ -57,6 +57,7 @@ else
 	DOCKER_BUILD_OPTION = --no-cache --rm=true
 endif
 
+
 # DenebNet , VegaNet, MainNet
 ifeq ($(MAKECMDGOALS) , bash)
 	CONFIG_BASE_URL:=https://networkinfo.havah.io
@@ -67,8 +68,8 @@ ifeq ($(MAKECMDGOALS) , bash)
 #	AUTO_SEEDS:=True
 	SERVICE:=MainNet
 #	CC_DEBUG:="true"
-	IS_AUTOGEN_CERT:=true
-    PRIVATE_KEY_FILENAME:="YOUR_KEYSTORE_FILENAME.der"
+	IS_AUTOGEN_CERT:="true"
+    KEY_STORE_FILENAME:="YOUR_KEYSTORE_FILENAME.json"
 	LOCAL_TEST:="true"
 #	FASTEST_START:="true"
 	NTP_REFRESH_TIME:="30"
@@ -81,15 +82,14 @@ ifeq ($(MAKECMDGOALS) , bash)
 	CTX_LEVEL:="debug"
 	GOLOOP_ENGINES:="java"
 	DOCKER_LOG_STDOUT:="true"
+
 #	GOLOOP_NODE_SOCK:="/goloop/cli.sock"
 #	GOLOOP_EE_SOCKET:="/goloop/ee.sock"
-
-	SEEDS:='20.20.5.116:7100,20.20.5.117:7100,20.20.5.122:7100,20.20.5.123:7100,20.20.5.124:7100'
-	CID:='0xa131c'
+	ROLE:=3
+#	SEEDS:='20.20.5.116:7100,20.20.5.117:7100,20.20.5.122:7100,20.20.5.123:7100,20.20.5.124:7100'
+#	CID:='0xa131c'
 	KEY_PASSWORD:='havah'
-	ONLY_GOLOOP:='true'
-
-
+#	ONLY_GOLOOP:='true'
 
 endif
 
@@ -289,3 +289,6 @@ change_docker:
 
 gendocs: change_docker
 	@$(shell ./makeMarkDown.sh)
+
+
+

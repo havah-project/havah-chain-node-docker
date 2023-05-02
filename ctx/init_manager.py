@@ -10,6 +10,8 @@ from config.configure import Configure as CFG
 from config.configure_setter import ConfigureSetter as CS
 from common import resources
 
+from pawnlib.utils.notify import send_slack
+
 
 class InitManager:
     def __init__(self, ):
@@ -21,6 +23,17 @@ class InitManager:
         self.print_banner()
         self.print_resources()
         self.cfg.logger.info("[INIT_CONFIG] Initializing Configuration")
+
+        try:
+            send_slack(
+                url=self.cfg.config['SLACK_WH_URL'],
+                msg_text="Starting Node",
+                title='Starting Node',
+                msg_level='info'
+            )
+        except:
+            pass
+
         for key, value in self.cfg.base_env.items():
             self.cfg.logger.info(f"[INIT_CONFIG] {key} = {value} ({type(value).__name__})")
 
@@ -48,7 +61,6 @@ class InitManager:
         self.cs.create_icon_config()
         self.cs.create_db()
         self.cfg.logger.info("--- Finish initializing ---")
-
         self.cs.validate_env()
 
     def _check_ip_type(self):

@@ -169,7 +169,7 @@ class NodeChecker:
             await asyncio.sleep(_check_interval)
 
     async def check_validator_status(self):
-        _check_interval = self.config.get('CHECK_INTERVAL', 10)
+        _check_interval = self.config.get('CHECK_INTERVAL', 15)
         self.cfg.logger.info(f"Starting validator status, interval={_check_interval}")
         _previous_status = {}
         # _preventing_duplicate_send_count = 0
@@ -196,7 +196,7 @@ class NodeChecker:
                         send_slack(
                                 url=self.config['SLACK_WH_URL'],
                                 title='[WARN] Changed Validator Status',
-                                msg_text=f"{message}, count={error_counter.consecutive_count}",
+                                msg_text=f"{message}, consecutive_error_count={error_counter.consecutive_count}",
                                 msg_level='warning'
                         )
                     # _preventing_duplicate_send_count += 1
@@ -275,7 +275,8 @@ class ValidatorChecker:
         self._owner_address = owner_address
         self.cfg = cfg
         self._status = {}
-        self.cfg.logger.debug(f"ValidatorChecker() with {self._owner_address}")
+        if self.cfg.get_base_config('USE_VALIDATOR_HEALTH_CHECK'):
+            self.cfg.logger.info(f"ValidatorChecker() with address={self._owner_address}")
 
     def fetch_status(self, url, timeout=3):
         self.fetch_validator_info(url, timeout)

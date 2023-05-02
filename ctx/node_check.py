@@ -9,7 +9,7 @@ from manager.chain_init import ChainInit
 
 cfg = CFG(
     use_file=True,
-    log_name='ICON2',
+    log_name='havah',
     log_level='debug'
 )
 

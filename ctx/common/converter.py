@@ -63,7 +63,7 @@ class UpdateType:
 
     @staticmethod
     def is_type_dict(value):
-        if isinstance(value, dict) and value.get('default', "NOT_NONE") is not "NOT_NONE" and value.get('type'):
+        if isinstance(value, dict) and value.get('default', "NOT_NONE") != "NOT_NONE" and value.get('type'):
             return True
         return False
 

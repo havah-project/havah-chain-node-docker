@@ -65,5 +65,6 @@ RUN if [ "${IS_NTP_BUILD}" == "true" ]; then \
 
 RUN pip install --no-cache-dir -r /ctx/requirements.txt
 
-ENTRYPOINT ["/init"]
+#ENTRYPOINT ["/init"]
+CMD "/init"
 

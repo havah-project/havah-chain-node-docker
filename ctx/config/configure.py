@@ -12,6 +12,7 @@ from common import converter
 from termcolor import cprint
 from devtools import debug
 from pawnlib.typing import Null
+from pawnlib.utils.notify import send_slack
 
 def get_local_ip():
     s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -79,6 +80,16 @@ class Configure:
         cprint(f"{exception_string}", "red")
         self.logger.error(f"{exception_string}")
 
+        try:
+            send_slack(
+                url=self.config['SLACK_WH_URL'],
+                msg_text=exception_string,
+                title='Exception error',
+                msg_level='info'
+            )
+        except:
+            pass
+
         if self.config.get('CTX_LEVEL') == "debug":
             trace = []
             tb = exception.__traceback__
@@ -127,8 +138,10 @@ class Configure:
         temp_env['ONLY_GOLOOP'] = converter.str2bool(os.getenv('ONLY_GOLOOP', False))
         temp_env['CTX_LEVEL'] = self._get_validated_environment("CTX_LEVEL", "info", ["info", "debug", "warn"])
         temp_env['PASS_VALIDATE'] = converter.str2bool(os.getenv('PASS_VALIDATE', True))
-        temp_env['USE_HEALTH_CHECK'] = converter.str2bool(os.getenv('USE_HEALTH_CHECK', False))
-        temp_env['USE_NTP_SYNC'] = converter.str2bool(os.getenv('USE_NTP_SYNC', False))
+        temp_env['USE_HEALTH_CHECK'] = converter.str2bool(os.getenv('USE_HEALTH_CHECK', True))
+        temp_env['USE_VALIDATOR_HEALTH_CHECK'] = converter.str2bool(os.getenv('USE_VALIDATOR_HEALTH_CHECK', False))
+
+        temp_env['USE_NTP_SYNC'] = converter.str2bool(os.getenv('USE_NTP_SYNC', True))
         temp_env['GOLOOP_KEY_STORE'] = os.getenv('GOLOOP_KEY_STORE', "/goloop/config/keystore.json")
         temp_env['NTP_SERVERS'] = os.getenv('NTP_SERVERS', "time.google.com,time.cloudflare.com,time.facebook.com,time.apple.com,time.euro.apple.com")
         temp_env['NTP_SERVER'] = os.getenv('NTP_SERVER', None)
@@ -158,7 +171,7 @@ class Configure:
             self.config_from_file()
         else:
             config_url = f'{service_url}/{self.base_env["CONFIG_URL_FILE"]}'
-            self.logger.info(f"-- Download new configuration {config_url}")
+            self.logger.info("-- Download new configuration ")
             res = requests.get(config_url)
             if res.status_code == 200:
                 self.config = yaml.safe_load(res.text)
