@@ -22,6 +22,7 @@ from common.converter import region_info as region_s3_info  # regeion config
 from common.converter import region_cf_info, todaydate  # regeion config
 from config.configure import Configure
 from .file_indexing import FileIndexer
+from pawnlib.utils.notify import send_slack
 
 # sys.excepthook = output.exception_handler
 
@@ -140,6 +141,8 @@ class Restore:
         self.region_info = None
         self.script_exit = False
 
+        self._slack_url = self.config.get('SLACK_WH_URL', None)
+
         if self.download_url_type == "indexing":
             self.download_url = download_url
         elif self.download_url_type == "file_list":
@@ -160,6 +163,18 @@ class Restore:
 
         self.run()
 
+    def _send_slack(self, msg_text=None, title=None):
+        if self._slack_url:
+            try:
+                send_slack(
+                    url=self._slack_url,
+                    msg_text=msg_text,
+                    title=title,
+                    msg_level='info'
+                )
+            except:
+                pass
+
     def run(self):
         # Restore start.....
         self._prepare()
@@ -177,6 +192,8 @@ class Restore:
 
         if self.checksum_result.get("status") == "OK":
             output.write_file(self.stored_local_path['restored_marks'], todaydate('ms'))
+            self._send_slack(title="Completed checking checksum", msg_text="")
+
         elif self.checksum_result.get("status") == "FAIL":
             self.cfg.logger.error(f'[RESTORE] [ERROR] File checksum error : {self.checksum_result.get("status")}')
             raise Exception(f"[RESTORE] [ERROR] File checksum error")
@@ -440,6 +457,14 @@ class Restore:
                 self.cfg.logger.info(f"[RESTORE] DOWNLOAD TOTAL_FILE_COUNT = {total_file_count}")
                 cmd = f"aria2c -i {self.stored_local_path['index_url']} -d {self.db_path} {cmd_opt}"
 
+            self._send_slack(
+                title="Start downloading the db",
+                msg_text={
+                    "SERVICE": self.network,
+                    "TOTAL_FILE_COUNT": total_file_count
+                }
+            )
+
             # self.cfg.logger.info(f'[RESTORE][CMD] {cmd}')
             command_result = base.run_execute(
                 cmd=cmd,
@@ -491,16 +516,9 @@ class Restore:
         completed_msg = f"[RESTORE] Completed downloading. " \
                         f"elapsed_time={elapsed_time}s, {converter.format_seconds_to_hhmmss(run_elapsed)}"
         self.cfg.logger.info(completed_msg)
-        try:
-            if self.config.get('SLACK_WH_URL', None):
-                output.send_slack(
-                    url=self.config['SLACK_WH_URL'],
-                    msg_text=Restore.result_formatter(completed_msg),
-                    title='Restore',
-                    msg_level='error'
-                )
-        except Exception as e:
-            self.cfg.logger.error(f"[RESTORE] [ERROR] send_slack {e}")
+
+        from pawnlib.typing import format_seconds_to_hhmmss
+        self._send_slack(title="Completed downloading", msg_text={"elapsed_time": format_seconds_to_hhmmss(int(run_elapsed))})
 
     @staticmethod
     def result_formatter(log: str):

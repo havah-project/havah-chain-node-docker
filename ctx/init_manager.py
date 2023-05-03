@@ -3,21 +3,32 @@
 import os
 import sys
 
-import pawnlib.typing
-
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from config.configure import Configure as CFG
 from config.configure_setter import ConfigureSetter as CS
 from common import resources
-
 from pawnlib.utils.notify import send_slack
+from pawnlib.config import pawn
 
 
 class InitManager:
     def __init__(self, ):
-        self.cfg = CFG() # Configure
+        self.cfg = CFG()  # Configure
         if self.cfg.base_env['ONLY_GOLOOP'] is False:
-            self.cs = CS()# ConfigureSetter
+            self.cs = CS()  # ConfigureSetter
+
+    def _export_major_config(self):
+        _major_base_keys = ["SERVICE", "USE_HEALTH_CHECK", "USE_VALIDATOR_HEALTH_CHECK", "USE_NTP_SYNC"]
+        _major_config_keys = ["CID", "ROLE", "CHECK_BLOCK_STACK", "CHECK_INTERVAL", "CHECK_PEER_STACK", "CHECK_STACK_LIMIT", "CHECK_TIMEOUT"]
+        _cfg_config = {}
+
+        for key in _major_base_keys:
+            _cfg_config[key] = self.cfg.base_env.get(key)
+
+        for key in _major_config_keys:
+            _cfg_config[key] = self.cfg.config.get(key)
+
+        return _cfg_config
 
     def run(self, ):
         self.print_banner()
@@ -27,7 +38,7 @@ class InitManager:
         try:
             send_slack(
                 url=self.cfg.config['SLACK_WH_URL'],
-                msg_text="Starting Node",
+                msg_text=self._export_major_config(),
                 title='Starting Node',
                 msg_level='info'
             )
