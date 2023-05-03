@@ -41,7 +41,7 @@ ENV IS_DOCKER=true \
 #    fi
 
 RUN apk update && \
-    apk add --no-cache python3 python3-dev build-base libffi-dev libressl-dev bash vim tree nmap git ncurses curl gomplate logrotate aria2 jq && \
+    apk add --no-cache python3 python3-dev build-base libffi-dev libressl-dev bash vim tree nmap git ncurses curl gomplate logrotate aria2 jq tzdata && \
     ln -sf python3 /usr/bin/python && \
     python -m ensurepip && \
     python -m pip install --no-cache-dir --upgrade pip setuptools wheel
