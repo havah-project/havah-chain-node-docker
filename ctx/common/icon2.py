@@ -228,7 +228,7 @@ class WalletLoader:
         self.print_logging(f"Write to file => {self.keysecret_filename}", "green")
 
         output.write_file(self.keysecret_filename, password)
-        self.print_logging(f"Stored keystore file" "yellow")
+        self.print_logging(f"Stored keystore file", "yellow")
         self.print_wallet()
 
     def get_public_key(self, compressed=True):
