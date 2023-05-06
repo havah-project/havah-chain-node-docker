@@ -162,19 +162,29 @@ class CheckMyNode:
         _secret = open_file(conf.data.env.GOLOOP_KEY_SECRET)
         _password = conf.data.env.KEY_PASSWORD
 
+        if not _password:
+            print_error_message("'KEY_PASSWORD' environment is empty")
+        if not _secret:
+            pawn.console.log(f"[yellow]'{conf.data.env.GOLOOP_KEY_SECRET}' file is empty.")
+
         if _secret != _password:
             pawn.console.log("[red]Password and Secret are different.")
             pawn.console.debug(f"[red] {_secret} (GOLOOP_KEY_SECRET) != {_password} (KEY_PASSWORD)")
             pawn.console.log(f"[red]Sync password to {conf.data.env.GOLOOP_KEY_SECRET}")
             write_file(conf.data.env.GOLOOP_KEY_SECRET, _password)
 
-        wallet = load_wallet_key(file_or_object=keystore_file, password=_password)
-        if not self._node_address:
-            self._node_address = wallet.get('address')
+        try:
+            wallet = load_wallet_key(file_or_object=keystore_file, password=_password)
+            if not self._node_address:
+                self._node_address = wallet.get('address')
 
-        if not conf.PAWN_DEBUG:
-            del wallet['private_key']
-            del wallet['public_key_long']
+            if not conf.PAWN_DEBUG:
+                del wallet['private_key']
+                del wallet['public_key_long']
+        except Exception as e:
+            print_error_message(f"Failed to load wallet - {e}")
+            wallet = {}
+
         return wallet
 
     @_print_result_decorator

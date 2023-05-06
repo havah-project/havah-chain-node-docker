@@ -85,7 +85,7 @@ ifeq ($(MAKECMDGOALS) , bash)
 
 #	GOLOOP_NODE_SOCK:="/goloop/cli.sock"
 #	GOLOOP_EE_SOCKET:="/goloop/ee.sock"
-	ROLE:=3
+#	ROLE:=3
 #	SEEDS:='20.20.5.116:7100,20.20.5.117:7100,20.20.5.122:7100,20.20.5.123:7100,20.20.5.124:7100'
 #	CID:='0xa131c'
 	KEY_PASSWORD:='havah'

@@ -14,6 +14,7 @@ from devtools import debug
 from pawnlib.typing import Null
 from pawnlib.utils.notify import send_slack
 from pawnlib.config import pawn
+from pawnlib.typing import str2bool
 
 
 def get_local_ip():
@@ -64,9 +65,13 @@ class Configure:
         self.loggers = {'booting.log': self.init_logger('booting.log', log_level=self.base_env['CTX_LEVEL'], log_stdout=True)}
         self.logger = self.get_logger('booting.log')
 
+        if pawn.get('PAWN_DEBUG'):
+            pawn.error_logger = self.logger
+
         if self.base_env['ONLY_GOLOOP'] is True:
             # self.loggers = Null()
             # self.logger = Null()
+            self.load_offline_config()
             return
 
         self.get_config(use_file=use_file)
@@ -111,6 +116,97 @@ class Configure:
                 'message': str(exception),
                 'trace': trace
             })
+
+    def export_major_config(self):
+        _major_base_keys = ["SERVICE", "USE_HEALTH_CHECK", "USE_VALIDATOR_HEALTH_CHECK", "USE_NTP_SYNC"]
+        _major_config_keys = ["CID", "ROLE", "CHECK_BLOCK_STACK", "CHECK_INTERVAL", "CHECK_PEER_STACK", "CHECK_STACK_LIMIT", "CHECK_TIMEOUT"]
+        _cfg_config = {}
+
+        for key in _major_base_keys:
+            _cfg_config[key] = self.base_env.get(key)
+
+        for key in _major_config_keys:
+            _cfg_config[key] = self.config.get(key)
+
+        return _cfg_config
+
+    def load_offline_config(self):
+        _major_base_keys = ["SERVICE", "USE_HEALTH_CHECK", "USE_VALIDATOR_HEALTH_CHECK", "USE_NTP_SYNC"]
+        _major_config_keys = ["CID", "ROLE", "CHECK_BLOCK_STACK", "CHECK_INTERVAL", "CHECK_PEER_STACK", "CHECK_STACK_LIMIT", "CHECK_TIMEOUT"]
+        _env_keys = ["SLACK_WH_URL"]
+
+        _major_config = {
+            "base_env": {
+                "SERVICE": "",
+                "USE_HEALTH_CHECK": {
+                    "default": True,
+                    "type": str2bool
+                },
+                "USE_VALIDATOR_HEALTH_CHECK": {
+                    "default": False,
+                    "type": str2bool,
+                },
+                "USE_NTP_SYNC": {
+                    "default": True,
+                    "type": str2bool,
+                },
+                "ONLY_GOLOOP": {
+                    "default": False,
+                    "type": str2bool,
+                }
+            },
+            "config": {
+                "CID": "",
+                "ROLE": "",
+                "CHECK_BLOCK_STACK":  {
+                    "default": 10,
+                    "type": int,
+                },
+                "CHECK_INTERVAL": {
+                    "default": 10,
+                    "type": int,
+                },
+                "CHECK_PEER_STACK": {
+                    "default": 6,
+                    "type": int,
+                } ,
+                "CHECK_STACK_LIMIT": {
+                    "default": 360,
+                    "type": int,
+                },
+                "CHECK_TIMEOUT": {
+                    "default": 10,
+                    "type": int,
+                },
+                "SLACK_WH_URL": "",
+            }
+        }
+        for config_key, config in _major_config.items():
+            for config_name, config_value in config.items():
+                _config_value = None
+                _env_value = os.getenv(config_name, None)
+                if isinstance(config_value, dict) and config_value.get('type'):
+                    if not _env_value:
+                        _config_value = config_value.get('default')
+                    else:
+                        _config_value = config_value['type'](_env_value)
+                else:
+                    _config_value = _env_value
+                pawn.console.debug(f"{config_name}={_config_value} ({type(_config_value).__name__})")
+                getattr(self, config_key, )[config_name] = _config_value
+
+    def send_slack(self, title="", msg_text="", msg_level="info"):
+        pawn.console.debug(f"Try to send SLACK, SLACK_WH_URL={self.config.get('SLACK_WH_URL')}")
+        if self.config.get('SLACK_WH_URL'):
+            try:
+                send_slack(
+                    url=self.config['SLACK_WH_URL'],
+                    msg_text=msg_text,
+                    title=title,
+                    msg_level=msg_level
+                )
+            except Exception as e:
+                self.logger.error(f"Failed to send SLACK - {e}")
 
     def get_logger(self, log_file="booting.log"):
         return self.loggers.get(log_file, self.loggers.get('booting.log')).log
