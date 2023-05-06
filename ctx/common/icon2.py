@@ -83,6 +83,17 @@ def get_validator_status(endpoint=None, address=None, timeout=3):
     )
 
 
+def get_validators_info(endpoint=None, data_type='all', timeout=3):
+    return call_chain_score(
+        method="getValidatorsInfo",
+        endpoint=endpoint,
+        params={
+            "dataType": data_type
+        },
+        timeout=timeout
+    )
+
+
 def get_validator_info(endpoint=None, address=None, timeout=3):
     return call_chain_score(
         method="getValidatorInfo",

@@ -7,9 +7,10 @@ import requests
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from config.configure import Configure as CFG
 from common.icon2 import WalletLoader
-from common.output import is_file,  write_file, write_json, write_yaml, dump
+from common.output import is_file, write_file, write_json, write_yaml, dump
 from manager.restore_v3 import Restore
 from pawnlib.resource import net
+
 
 class ConfigureSetter:
     def __init__(self, ):
@@ -102,7 +103,7 @@ class ConfigureSetter:
         )
         self.cfg.logger.info(f"{rs}")
 
-    def create_env_file(self, file_name: str='.env'):
+    def create_env_file(self, file_name: str = '.env'):
         file_name = f"{os.path.join(self.base_dir, file_name)}"
         self.cfg.logger.info(f"Start {sys._getframe().f_code.co_name}")
         with open(file_name, 'w') as env:
@@ -165,7 +166,7 @@ class ConfigureSetter:
             self._value_error_exception(f"Cannot connect to Seed Servers 👉 {exception_messages}")
 
     def _check_role(self):
-        allows_roles = [ 0, 1, 3 ]
+        allows_roles = [0, 1, 3]
         if self.config.get('ROLE') not in allows_roles:
             self._value_error_exception(f"Invalid ROLE, role={self.config.get('ROLE')}, allows={allows_roles}")
 
@@ -175,12 +176,13 @@ class ConfigureSetter:
         else:
             self.cfg.logger.error(f"{exception_message} / "
                                   f"PASS_VALIDATE={self.cfg.base_env.get('PASS_VALIDATE')}")
+
     def validate_env(self):
         self._check_seed_servers()
         self._check_role()
-        #TODO
-        #check keystore file
-        #sys.exit(-127)
+        # TODO
+        # check keystore file
+        # sys.exit(-127)
 
     def run(self, ):
         dump(self.config)

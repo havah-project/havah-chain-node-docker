@@ -1,22 +1,271 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-
 import append_parent_path
+import os
+import argparse
 from common import icon2, base, resources
 from pawnlib.config import pawn, pconf
-from pawnlib.input import PromptWithArgument
 from pawnlib.builder.generator import generate_banner
-from pawnlib.output import is_file, PrintRichTable, open_file
-from pawnlib.typing import sys_exit, str2bool
-from rich.prompt import Confirm
-import argparse
-import sys
-import os
-
+from pawnlib.output import is_file, PrintRichTable, open_file, write_file, write_json
+from pawnlib.typing import sys_exit, str2bool, keys_exists, flatten, todaydate, Null
 from pawnlib.resource import get_hostname, get_public_ip, get_local_ip
 from pawnlib.utils.icx_signer import load_wallet_key
-from pawnlib.utils.http import CallHttp
+from pawnlib.utils.http import CallHttp, get_operator_truth, append_http
 from ast import literal_eval
+from functools import partial
+from copy import deepcopy
+
+
+class CheckMyNode:
+    def __init__(self, is_write_file=False):
+        self._conf = pconf()
+        self._env = get_environments()
+        self._node_address = self._env.get('NODE_ADDRESS', '')
+        self._owner_address = None
+        self.result = {}
+        self.is_write_file = is_write_file
+
+        self._table_options = dict(
+            with_idx=False,
+            show_lines=True,
+            columns_options=dict(
+                value=dict(
+                    justify='left'
+                )
+            )
+        )
+        self._local_endpoint = None
+        self._public_endpoint = None
+
+        self.set_endpoint()
+
+    def set_endpoint(self):
+        if self._env.get('LOCAL_ENDPOINT'):
+            self._local_endpoint = self._env.get('LOCAL_ENDPOINT')
+        else:
+            _default_rpc_port = self._env.get('GOLOOP_RPC_ADDR', ":9000")
+            self._local_endpoint = f"http://localhost{_default_rpc_port}"
+
+        if self._env.get('PUBLIC_ENDPOINT'):
+            self._public_endpoint = self._env.get('PUBLIC_ENDPOINT')
+        else:
+            self._public_endpoint = get_endpoint()
+        if not self._public_endpoint:
+            self._public_endpoint = self._local_endpoint
+
+        self._local_endpoint = append_http(self._local_endpoint)
+        self._public_endpoint = append_http(self._public_endpoint)
+
+    def run(self):
+        pawn.console.debug(f"Service: {self._env.get('SERVICE')}, public endpoint: {self._public_endpoint}, local endpoint: {self._local_endpoint}")
+
+        self.check_system_information()
+        self.check_environments()
+        self.check_wallet()
+        self.find_my_owner_key(url=self._public_endpoint)
+        self.check_validator_info(self._public_endpoint)
+        self.check_validator_status(self._public_endpoint)
+        self.check_node_status(self._local_endpoint, kind='local')
+        self.check_node_status(self._public_endpoint, kind='public')
+        self.check_comparing_node_status()
+        self.result['updated_date'] = todaydate('ms')
+
+        if self.is_write_file:
+            write_json(f"{self._env.get('BASE_DIR')}/config/check_my_node.json", self.result)
+
+    def _print_result_decorator(func):
+        def from_kwargs(self, *args, **kwargs):
+            func_name = func.__name__
+            title = func_name.replace('_', ' ').title()
+            kind = kwargs.get('kind', '')
+            result_key = func_name
+            if kind:
+                result_key = f"{func_name}_{kind}"
+                kind = f"- {kind}"
+
+            pawn.console.print(f"\n[bold]✅ {title} {kind}")
+            pawn.console.debug(f"Start '{func_name}' function")
+            ret = func(self, *args, **kwargs)
+            _is_error = False
+            if ret:
+                if isinstance(ret, dict):
+                    if ret.get('result'):
+                        ret = ret.get('result')
+                    elif ret.get('error'):
+                        print_error_message(ret.get('error'))
+                        _is_error = True
+
+                self.result[result_key] = ret
+
+                if func_name in ["check_node_status"]:
+                    ret = [ret]
+
+                if not _is_error:
+                    table_options = deepcopy(self._table_options)
+                    if func_name in ["check_validator_status"]:
+                        table_options['call_value_func'] = partial(literal_eval)
+                    PrintRichTable(data=ret, **table_options)
+
+            return ret
+        return from_kwargs
+
+    @staticmethod
+    def check_recommended_rules(key, value):
+        recommended_rules = {
+            "memory": {
+                "message": "[yellow](We recommended a minimum 16GB for RAM for validator)[/yellow]",
+                "operator": [value, ">=", 16],
+                "unit": "GB",
+            }
+        }
+        if value and recommended_rules.get(key):
+            rule = recommended_rules.get(key)
+            unit = rule.get('unit', '')
+            operator = rule.get('operator')
+            result = get_operator_truth(*operator)
+
+            if not result:
+                return f"{value}{unit} {rule.get('message')}"
+            else:
+                return f"{value}{unit}"
+
+    @_print_result_decorator
+    def check_system_information(self):
+
+        system_info = {
+            "hostname": get_hostname(),
+            "public_ip": get_public_ip(),
+            "local_ip": get_local_ip(),
+            "platform": resources.get_platform_info(),
+            "memory": self.check_recommended_rules("memory", resources.get_mem_info().get('mem_total')),
+            "rlimit": resources.get_rlimit_nofile(),
+
+        }
+        return system_info
+
+    @_print_result_decorator
+    def check_wallet(self):
+        conf = pconf()
+        keystore_file = ""
+        if conf.data.env.KEY_STORE_FILENAME:
+            keystore_file = f"{conf.data.env.BASE_DIR}/config/{conf.data.env.KEY_STORE_FILENAME}"
+            pawn.console.log(f"<KEY_STORE_FILENAME>, {keystore_file}")
+        elif conf.data.env.GOLOOP_KEY_STORE:
+            keystore_file = conf.data.env.GOLOOP_KEY_STORE
+            pawn.console.log(f"<GOLOOP_KEY_STORE>, {keystore_file}")
+
+        if is_file(keystore_file):
+            pawn.console.log(f"'{keystore_file}' file exists")
+        else:
+            raise ValueError(f"'{keystore_file}' not found")
+
+        _secret = open_file(conf.data.env.GOLOOP_KEY_SECRET)
+        _password = conf.data.env.KEY_PASSWORD
+
+        if _secret != _password:
+            pawn.console.log("[red]Password and Secret are different.")
+            pawn.console.debug(f"[red] {_secret} (GOLOOP_KEY_SECRET) != {_password} (KEY_PASSWORD)")
+            pawn.console.log(f"[red]Sync password to {conf.data.env.GOLOOP_KEY_SECRET}")
+            write_file(conf.data.env.GOLOOP_KEY_SECRET, _password)
+
+        wallet = load_wallet_key(file_or_object=keystore_file, password=_password)
+        if not self._node_address:
+            self._node_address = wallet.get('address')
+
+        if not conf.PAWN_DEBUG:
+            del wallet['private_key']
+            del wallet['public_key_long']
+        return wallet
+
+    @_print_result_decorator
+    def find_my_owner_key(self, url):
+        if self._node_address:
+            res = icon2.get_validators_info(
+                endpoint=url,
+            )
+            if isinstance(res, dict) and keys_exists(res, "result", "validators"):
+                for validator in res['result']['validators']:
+                    if validator.get('node') == self._node_address or validator.get('owner') == self._node_address:
+                        self._owner_address = validator.get('owner')
+                        pawn.console.log("Found my owner key")
+                        is_same_owner = False
+                        if self._owner_address == self._node_address:
+                            pawn.console.log("[yellow]Use the same [bold]node key[/bold] and [bold]owner key[/bold].")
+                            is_same_owner = True
+                        else:
+                            pawn.console.log("[yellow]Use the node key.")
+
+                        if is_same_owner:
+                            node_address = self._node_address
+                        else:
+                            node_address = f"[bold][yellow]{self._node_address}[/yellow][/bold]"
+
+                        return {
+                            "name": validator.get('name'),
+                            "owner address": self._owner_address,
+                            "node address": node_address,
+                            "node public_key": f"[yellow]{validator.get('nodePublicKey')}[/yellow]"
+                        }
+        print_error_message(f"Your owner key was not found on the {self._env.get('SERVICE')}. [yellow]{self._node_address}[/yellow]")
+
+    @_print_result_decorator
+    def check_environments(self):
+        _env = {
+            "SERVICE": f"[bold]{pconf().data.env.SERVICE}[/bold]",
+            "Public RPC endpoint": self._public_endpoint,
+            "Local RPC endpoint": self._local_endpoint,
+        }
+        return _env
+
+    @_print_result_decorator
+    def check_validator_info(self, url=None):
+        res = icon2.get_validator_info(
+            endpoint=url,
+            address=self._owner_address
+        )
+        return res
+
+    @_print_result_decorator
+    def check_validator_status(self, url=None):
+        # TODO: check status with endpoint of MainNet or VegaNet
+        res = icon2.get_validator_status(
+            endpoint=url,
+            address=self._owner_address
+        )
+        return res
+
+    @_print_result_decorator
+    def check_node_status(self, url=None, kind=None):
+        res = CallHttp(f"{url}/admin/chain").run()
+        if res.response.error:
+            print_error_message(res.response.error)
+        else:
+            if not pconf().data.env.ONLY_GOLOOP:
+                res.response.result[0]['service'] = pconf().data.env.SERVICE
+            return res.response.result[0]
+
+        return {}
+
+    @_print_result_decorator
+    def check_comparing_node_status(self):
+        local = self.result.get('check_node_status_local')
+        public = self.result.get('check_node_status_public')
+        if local and public:
+            for k in ["cid", "nid", "channel"]:
+                if local.get(k) != public.get(k):
+                    pawn.console.log(f"[red][ERROR] '{k}' is different. local={local.get(k)}, public={public.get(k)}")
+
+            pconf().data.result.diff_height = public.get('height', 0) - local.get('height', 0)
+            pawn.console.log(f"Left BlockHeight: {pconf().data.result.diff_height} ({public.get('height', 0)} - {local.get('height', 0)})")
+        else:
+            message = ""
+            if not local:
+                message = "'localhost'"
+            if not public:
+                if message:
+                    message += " and "
+                message += "'public'"
+            print_error_message(f"Failed to fetch state from {message} endpoint")
 
 
 def get_endpoint():
@@ -25,12 +274,12 @@ def get_endpoint():
         "vega": "https://ctz.vega.havah.io",
     }
 
-    if pconf().data.ENDPOINT:
-        return pconf().data.ENDPOINT
-    elif default_endpoints.get(pconf().data.SERVICE.lower()):
-        return default_endpoints[pconf().data.SERVICE.lower()]
+    if pconf().data.env.ENDPOINT:
+        return pconf().data.env.ENDPOINT
+    elif default_endpoints.get(pconf().data.env.SERVICE.lower()):
+        return default_endpoints[pconf().data.env.SERVICE.lower()]
     else:
-        raise ValueError("Unknown endpoint")
+        return None
 
 
 def get_environments():
@@ -44,6 +293,9 @@ def get_environments():
         "SERVICE": "MainNet",
         "ONLY_GOLOOP": False,
         "ENDPOINT": "",
+        "LOCAL_ENDPOINT": "",
+        "PUBLIC_ENDPOINT": "",
+        "NODE_ADDRESS": "",
     }
     env_dict = {}
     for key, default_value in environment_defaults.items():
@@ -57,116 +309,35 @@ def get_environments():
 
 
 def print_banner():
-    print(generate_banner("Check my node", author="jinwoo", version="0.1", font="starwars"))
+    print(generate_banner("Check my node", description="check my node", author="jinwoo", version="0.2", font="smslant"))
+
+
+def print_error_message(text=None):
+    if text == "SCOREError(-30003): E0003:MethodNotFound":
+        text = "It's not yet decentralized."
+    pawn.console.log(f"[red]❌ {text}")
 
 
 def main():
     print_banner()
     parser = argparse.ArgumentParser(prog='havah_wallet')
     parser.add_argument('-v', '--verbose', action='count', help='verbose mode ', default=0)
+    parser.add_argument('-s', '--silent', action='count', help='silent mode ', default=0)
+    parser.add_argument('-w', '--write', action='count', help='write mode ', default=0)
     args = parser.parse_args()
 
     pawn.set(
-        data=get_environments(),
-        columns_options=dict(
-            value=dict(
-                justify='left'
-            )
-        )
+        data=dict(
+            env=get_environments(),
+            result={}
+        ),
     )
+    if args.silent:
+        pawn.console = Null()
     if args.verbose:
         pawn.set(PAWN_DEBUG=True)
 
-    rpc_localhost = f"http://localhost{pconf().data.GOLOOP_RPC_ADDR}"
-    check_system_information()
-    pawn.console.rule("Check Environments")
-    check_wallet()
-    check_validator_status(url=get_endpoint())
-    check_validator_info(url=get_endpoint())
-    check_node_status(url=rpc_localhost)
-    check_node_status(url=get_endpoint())
-
-
-def check_system_information():
-    pawn.console.rule("Check System information")
-    columns = {
-        "hostname": get_hostname(),
-        "public_ip": get_public_ip(),
-        "local_ip": get_local_ip(),
-        "platform": resources.get_platform_info(),
-        "memory": f"{resources.get_mem_info().get('mem_total')}GB",
-        "rlimit": resources.get_rlimit_nofile(),
-
-    }
-    PrintRichTable(data=columns, with_idx=False, show_lines=True, columns_options=pawn.get('columns_options'))
-
-
-def check_wallet():
-    pawn.console.rule("Check Wallet")
-    conf = pconf()
-    keystore_file = ""
-    if conf.data.KEY_STORE_FILENAME:
-        keystore_file = f"{conf.data.BASE_DIR}/config/{conf.data.KEY_STORE_FILENAME}"
-        pawn.console.log(f"<KEY_STORE_FILENAME>, {keystore_file}")
-    elif conf.data.GOLOOP_KEY_STORE:
-        keystore_file = conf.data.GOLOOP_KEY_STORE
-        pawn.console.log(f"<GOLOOP_KEY_STORE>, {keystore_file}")
-
-    if not is_file(keystore_file):
-        raise ValueError(f"'{keystore_file}' not found")
-
-    _secret = open_file(conf.data.GOLOOP_KEY_SECRET)
-    _password = conf.data.KEY_PASSWORD
-
-    if _secret != _password:
-        pawn.console.log("[red]The passwords are different.")
-        pawn.console.debug(f"[red] {_secret} (GOLOOP_KEY_SECRET) != {_password} (KEY_PASSWORD)")
-
-    wallet = load_wallet_key(file_or_object=keystore_file, password=_password)
-
-    pawn.set(validator_address=wallet.get('address'))
-
-    if not conf.PAWN_DEBUG:
-        del wallet['private_key']
-        del wallet['public_key_long']
-    PrintRichTable(data=wallet, with_idx=False, show_lines=True, columns_options=pawn.get('columns_options'))
-
-
-def check_node_status(url=None):
-    pawn.console.rule("Check Node Status")
-    res = CallHttp(f"{url}/admin/chain").run()
-    if res.response.error:
-        pawn.console.log(f"[red]{res.response.error}")
-    else:
-        if not pconf().data.ONLY_GOLOOP:
-            res.response.result[0]['service'] = pconf().data.SERVICE
-
-        PrintRichTable(data=res.response.result, with_idx=False, show_lines=True, columns_options=pawn.get('columns_options'))
-
-
-def check_validator_info(url=None):
-    pawn.console.rule("Check Validator Information")
-    res = icon2.get_validator_info(
-        endpoint=url,
-        address=pconf().validator_address
-    )
-    if res.get('error'):
-        pawn.console.log(f"[red]{res.get('error')}")
-    else:
-        PrintRichTable(data=res.get('result'), with_idx=False, show_lines=True, columns_options=pawn.get('columns_options'))
-
-
-def check_validator_status(url=None):
-    # TODO: check status with endpoint of MainNet or VegaNet
-    pawn.console.rule("Check Validator Status")
-    res = icon2.get_validator_status(
-        endpoint=url,
-        address=pconf().validator_address
-    )
-    if res.get('error'):
-        pawn.console.log(f"[red]{res.get('error')}")
-    else:
-        PrintRichTable(data=res.get('result'), with_idx=False, show_lines=True, call_value_func=literal_eval, columns_options=pawn.get('columns_options'))
+    CheckMyNode(is_write_file=str2bool(args.write)).run()
 
 
 if __name__ == '__main__':
@@ -174,3 +345,4 @@ if __name__ == '__main__':
         main()
     except KeyboardInterrupt:
         pawn.console.log("[red]\n\nKeyboardInterrupt")
+

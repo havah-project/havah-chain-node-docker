@@ -10,11 +10,11 @@ ARG NTP_VERSION=ntp-4.2.8p15
 
 LABEL maintainer="infra team" \
       org.label-schema.build-date="${BUILD_DATE}" \
-      org.label-schema.name="havah-docker" \
+      org.label-schema.name="havah-chain-node-docker" \
       org.label-schema.description="Docker images for operating the HAVAH network." \
       org.label-schema.url="https://www.parametacorp.com/" \
       org.label-schema.vcs-ref="${VCS_REF}" \
-      org.label-schema.vcs-url="https://github.com/havah-project/havah-node-docker" \
+      org.label-schema.vcs-url="https://github.com/havah-project/havah-chain-node-docker" \
       org.label-schema.vendor="PARAMETA" \
       org.label-schema.version="${VERSION}-${VCS_REF}"
 
@@ -30,15 +30,8 @@ ENV IS_DOCKER=true \
     VERSION=$VERSION \
     BUILD_DATE=$BUILD_DATE \
     VCS_REF=$VCS_REF \
-    PLATFORM=havah \
+    PLATFORM='havah' \
     COLUMNS=135
-
-#RUN if [ "${IS_HAVAH}" == "true" ]; then \
-#        apk update && \
-#        apk add --no-cache python3 python3-dev build-base libffi-dev libressl-dev && \
-#        ln -sf python3 /usr/bin/python && \
-#        python -m ensurepip ; \
-#    fi
 
 RUN apk update && \
     apk add --no-cache python3 python3-dev build-base libffi-dev libressl-dev bash vim tree nmap git ncurses curl gomplate logrotate aria2 jq tzdata && \

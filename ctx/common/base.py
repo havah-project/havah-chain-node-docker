@@ -124,7 +124,7 @@ def write_logging(**kwargs):
         log_file_name = kwargs['log_filename']
 
     log_message = f"[{kwargs.get('line_no')}]{converter.todaydate('ms')}, {kwargs.get('line')}"
-
+    # total_file_count = kwargs.get('total_file_count')
     if kwargs.get("line_no") % 100 == 0:
         file_count_string = ""
         if kwargs.get('total_file_count'):

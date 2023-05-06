@@ -13,6 +13,8 @@ from termcolor import cprint
 from devtools import debug
 from pawnlib.typing import Null
 from pawnlib.utils.notify import send_slack
+from pawnlib.config import pawn
+
 
 def get_local_ip():
     s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -38,7 +40,7 @@ def singleton(class_):
 
 @singleton
 class Configure:
-    def __init__(self, use_file=False):
+    def __init__(self, use_file=False, use_exception_handler=True):
         self.about = {}
         self.get_version()
         self.config = dict()
@@ -67,8 +69,10 @@ class Configure:
             # self.logger = Null()
             return
 
-        self.get_config(use_file)
-        sys.excepthook = self.exception_handler
+        self.get_config(use_file=use_file)
+
+        if use_exception_handler:
+            sys.excepthook = self.exception_handler
 
     def get_version(self):
         for version_info in ["VERSION", "BUILD_DATE", "VCS_REF"]:
@@ -167,7 +171,7 @@ class Configure:
     def get_config(self, use_file):
         service_url = f'{self.base_env["CONFIG_URL"]}/{self.base_env["SERVICE"]}'
         if os.path.exists(self.base_env['CONFIG_LOCAL_FILE']) or use_file:
-            self.logger.info(f"Load config_from_file")
+            self.logger.info("Load config_from_file")
             self.config_from_file()
         else:
             config_url = f'{service_url}/{self.base_env["CONFIG_URL_FILE"]}'
@@ -241,8 +245,9 @@ class Configure:
             file_name = f"{os.path.join(base_dir, self.base_env.get('CONFIG_LOCAL_FILE', 'configure.yml'))}"
             with open(file_name, 'r') as js:
                 self.config = yaml.safe_load(js)
+            self.logger.info("Loaded config_from_file")
         except FileNotFoundError as e:
-            print(e)
+            pawn.console.debug(e)
 
     def run(self, ):
         print(json.dumps(self.config, indent=4))
