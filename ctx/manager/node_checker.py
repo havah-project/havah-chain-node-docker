@@ -106,7 +106,6 @@ class NodeChecker:
         _check_timeout = self.config.get('CHECK_TIMEOUT', 10)
         while True:
             peer_rs = self.pc.peer_status(f"http://{node_ip}:{_rpc_port}{_endpoint}", self.config.get('CHECK_TIMEOUT', _check_timeout))
-            # peer_rs = self.pc.peer_status(f"{self._base_url}{_endpoint}", self.config.get('CHECK_TIMEOUT', _check_timeout))
             if not peer_rs:
                 _peer_stack += 1
                 if not _peer_stack % self.config.get('CHECK_PEER_STACK', _check_peer_stack):
@@ -172,7 +171,6 @@ class NodeChecker:
         _check_interval = self.config.get('CHECK_INTERVAL', 15)
         self.cfg.logger.info(f"Starting validator status, interval={_check_interval}")
         _previous_status = {}
-        # _preventing_duplicate_send_count = 0
         error_counter = ErrorCounter()
 
         while True:
@@ -199,13 +197,13 @@ class NodeChecker:
                                 msg_text=f"{message}, consecutive_error_count={error_counter.consecutive_count}",
                                 msg_level='warning'
                         )
-                    # _preventing_duplicate_send_count += 1
 
             status = dict_to_line(
                 _status,
                 end_separator=", "
             )
-            self.cfg.logger.info(f"Validator status response: {status}")
+            if status:
+                self.cfg.logger.info(f"Validator status response: {status}")
             _previous_status = _status
             await asyncio.sleep(_check_interval)
 
