@@ -304,7 +304,7 @@ class CheckMyNode:
 def get_endpoint():
     default_endpoints = {
         "mainnet": "https://ctz.havah.io",
-        "vega": "https://ctz.vega.havah.io",
+        "veganet": "https://ctz.vega.havah.io",
     }
 
     if pconf().data.env.ENDPOINT:
