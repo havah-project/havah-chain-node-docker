@@ -79,7 +79,7 @@ ifeq ($(MAKECMDGOALS) , bash)
 	GOLOOP_CONSOLE_LEVEL:="debug"
 	GOLOOP_LOG_LEVEL:="debug"
 	LOG_OUTPUT_TYPE:="console"
-	CTX_LEVEL:="debug"
+#	CTX_LEVEL:="debug"
 	GOLOOP_ENGINES:="java"
 	DOCKER_LOG_STDOUT:="true"
 

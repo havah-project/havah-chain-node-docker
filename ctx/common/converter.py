@@ -9,11 +9,12 @@ from datetime import datetime
 
 
 class UpdateType:
-    def __init__(self, config=None, logger=None):
+    def __init__(self, config=None, logger=None, debug=False):
         if config is None:
             config = {}
         self.config = config
         self.logger = logger
+        self.debug = debug
         self.required_type = {}
         self.return_result = {}
 
@@ -123,16 +124,17 @@ class UpdateType:
         return return_value
 
     def logging(self, message=None, level="info"):
-        message_text = f"[CheckType] {message}"
-        if self.logger:
-            if level == "info" and hasattr(self.logger, "info"):
-                self.logger.info(message_text)
-            elif level == "error" and hasattr(self.logger, "error"):
-                self.logger.error(message_text)
-            elif level == "warn" and hasattr(self.logger, "warn"):
-                self.logger.warn(message_text)
-        else:
-            print(f"[{level.upper()}]{message_text}")
+        if self.debug:
+            message_text = f"[CheckType] {message}"
+            if self.logger:
+                if level == "info" and hasattr(self.logger, "info"):
+                    self.logger.info(message_text)
+                elif level == "error" and hasattr(self.logger, "error"):
+                    self.logger.error(message_text)
+                elif level == "warn" and hasattr(self.logger, "warn"):
+                    self.logger.warn(message_text)
+            else:
+                print(f"[{level.upper()}]{message_text}")
 
 
 def random_passwd(digit=8):

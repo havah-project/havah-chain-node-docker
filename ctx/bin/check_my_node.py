@@ -71,7 +71,15 @@ class CheckMyNode:
         self.result['updated_date'] = todaydate('ms')
 
         if self.is_write_file:
-            write_json(f"{self._env.get('BASE_DIR')}/config/check_my_node.json", self.result)
+            def default(obj):
+                if hasattr(obj, 'to_json'):
+                    return obj.to_json()
+                else:
+                    return str(obj)
+            import json
+            _result_dumps = json.dumps(dict(self.result), indent=4, default=default)
+            res = write_file(f"{self._env.get('BASE_DIR')}/config/check_my_node.json", _result_dumps)
+            pawn.console.log(res)
 
     def _print_result_decorator(func):
         def from_kwargs(self, *args, **kwargs):
@@ -113,8 +121,8 @@ class CheckMyNode:
     def check_recommended_rules(key, value):
         recommended_rules = {
             "memory": {
-                "message": "[yellow](We recommended a minimum 16GB for RAM for validator)[/yellow]",
-                "operator": [value, ">=", 16],
+                "message": "[yellow](We recommended a minimum 32GB RAM for validator)[/yellow]",
+                "operator": [value, ">=", 32],
                 "unit": "GB",
             }
         }
@@ -198,16 +206,11 @@ class CheckMyNode:
                     if validator.get('node') == self._node_address or validator.get('owner') == self._node_address:
                         self._owner_address = validator.get('owner')
                         pawn.console.log("Found my owner key")
-                        is_same_owner = False
                         if self._owner_address == self._node_address:
                             pawn.console.log("[yellow]Use the same [bold]node key[/bold] and [bold]owner key[/bold].")
-                            is_same_owner = True
-                        else:
-                            pawn.console.log("[yellow]Use the node key.")
-
-                        if is_same_owner:
                             node_address = self._node_address
                         else:
+                            pawn.console.log("[yellow]Use the node key.")
                             node_address = f"[bold][yellow]{self._node_address}[/yellow][/bold]"
 
                         return {
@@ -216,7 +219,8 @@ class CheckMyNode:
                             "node address": node_address,
                             "node public_key": f"[yellow]{validator.get('nodePublicKey')}[/yellow]"
                         }
-        print_error_message(f"Your owner key was not found on the {self._env.get('SERVICE')}. [yellow]{self._node_address}[/yellow]")
+        print_error_message(f"Your owner key was not found on the {self._env.get('SERVICE')}. \n"
+                            f"[yellow]{self._node_address}[/yellow] is not registered as an owner or node key.")
 
     @_print_result_decorator
     def check_environments(self):

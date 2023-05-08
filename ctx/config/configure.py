@@ -315,7 +315,13 @@ class Configure:
             if not self.config:
                 self.logger.error(f'No config file, \'{self.base_env.get("SERVICE")}\' is an invalid SERVICE name.')
                 sys.exit(127)
-            self.config = converter.UpdateType(self.config, self.logger).check()
+
+            if self.base_env.get('CTX_LEVEL').lower() == 'debug':
+                _debug = True
+            else:
+                _debug = False
+
+            self.config = converter.UpdateType(self.config, self.logger, debug=_debug).check()
         # if os.getenv('CTX_LEVEL') == 'debug':
         #     debug(self.config)
 

@@ -21,6 +21,7 @@ class TestNodeChecker(ContainerTestCase):
                     "FASTEST_START": "false",
                     "KEY_STORE_FILENAME": "keystore.json",
                     "ROLE": 0,
+                    "CTX_LEVEL": "debug",
                     # "LOG_OUTPUT_TYPE": "debug",
                 },
                 "network_mode": "bridge",
