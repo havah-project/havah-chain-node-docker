@@ -15,7 +15,7 @@ System Requirements
 
 CPU:  minimum 4core, recommend 8core +
 RAM:  minimum 16GB, recommend 32GB + 
-DISK : minimum SSD 1.5TB, recommend SSD 2TB + 
+DISK : minimum SSD 1TB, recommend SSD 1TB + 
 Network: minimum 1Gbps, recommend 2Gbps +
 
 External Communications 
@@ -84,7 +84,7 @@ The directories(data, config, icon, logs …) are created by docker engine, but 
 ├── config               # configuration files                         
 │   └── keystore.json   # Import the your keystore file
 ├── data                # block data
-│   ├── 1
+│   ├── 1               # Channel ID, Each network has a different Channel ID.
 │   ├── auth.json
 │   ├── cli.sock
 │   ├── ee.sock
@@ -106,7 +106,7 @@ The directories(data, config, icon, logs …) are created by docker engine, but 
 | Name               | default                | type | required | description                                                                      |
 |--------------------|------------------------|------|----------|----------------------------------------------------------------------------------|
 | SERVICE            | MainNet                | str  | false    | Service Name - (MainNet, VegaNet)                                                |
-| ROLE               | 0                      | int  | true     | Role of running node. 0: Citizen, 3: P-Rep                                       |
+| ROLE               | 0                      | int  | true     | Role of running node. 0: Citizen, 3: Validator                                   |
 | CONFIG_URL         |                        | str  | false    |                                                                                  |
 | CONFIG_URL_FILE    | default_configure.json | str  | false    |                                                                                  |
 | CONFIG_LOCAL_FILE  | configure.json         | str  | false    |                                                                                  |

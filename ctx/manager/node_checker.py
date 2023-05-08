@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-#-*- coding: utf-8 -*-
+# -*- coding: utf-8 -*-
 import sys
 import socket
 import asyncio
@@ -109,20 +109,24 @@ class NodeChecker:
             if not peer_rs:
                 _peer_stack += 1
                 if not _peer_stack % self.config.get('CHECK_PEER_STACK', _check_peer_stack):
-                    self.cfg.logger.error(f"Node API=Failed,stack_count={_peer_stack},Time={int(_peer_stack) * int(self.config.get('CHECK_PEER_STACK', _check_peer_stack))} sec)")
+                    self.cfg.logger.error(
+                        f"Node API=Failed,stack_count={_peer_stack},Time={int(_peer_stack) * int(self.config.get('CHECK_PEER_STACK', _check_peer_stack))} sec)")
                     if self.config.get('SLACK_WH_URL'):
                         send_slack(self.config['SLACK_WH_URL'],
-                                   self.result_formatter(f"Node API response=Failed,Stack count={_peer_stack},Time={int(_peer_stack) * int(self.config.get('CHECK_PEER_STACK', _check_peer_stack))} sec)"),
+                                   self.result_formatter(
+                                       f"Node API response=Failed,Stack count={_peer_stack},Time={int(_peer_stack) * int(self.config.get('CHECK_PEER_STACK', _check_peer_stack))} sec)"),
                                    'Node health',
                                    msg_level='error'
                                    )
             else:
                 self.cfg.logger.info(f"Node API response: {dict_to_line(self.get_peer_goloop(peer_rs), end_separator=', ')}")
                 if _peer_stack >= self.config.get('CHECK_PEER_STACK', _check_peer_stack):
-                    self.cfg.logger.info(f"Node API=OK,stack_count={_peer_stack},Time={int(_peer_stack) * int(self.config.get('CHECK_PEER_STACK', _check_peer_stack))} sec)")
+                    self.cfg.logger.info(
+                        f"Node API=OK,stack_count={_peer_stack},Time={int(_peer_stack) * int(self.config.get('CHECK_PEER_STACK', _check_peer_stack))} sec)")
                     if self.config.get('SLACK_WH_URL'):
                         send_slack(self.config['SLACK_WH_URL'],
-                                   self.result_formatter(f"Node API response=OK,Stack count={_peer_stack},Time={int(_peer_stack) * int(self.config.get('CHECK_PEER_STACK', _check_peer_stack))} sec)"),
+                                   self.result_formatter(
+                                       f"Node API response=OK,Stack count={_peer_stack},Time={int(_peer_stack) * int(self.config.get('CHECK_PEER_STACK', _check_peer_stack))} sec)"),
                                    'Node health',
                                    msg_level='info'
                                    )
@@ -160,7 +164,8 @@ class NodeChecker:
                 self.cfg.logger.error(f"Node stack_limit over. PEER STACK={_peer_stack}, BLOCK STACK={_block_stack}, Block={_block[-1]}")
                 if self.config.get('SLACK_WH_URL'):
                     send_slack(self.config['SLACK_WH_URL'],
-                               self.result_formatter(f"Node stack_limit over. PEER STACK={_peer_stack}, BLOCK STACK={_block_stack}, Block={_block[-1]})"),
+                               self.result_formatter(
+                                   f"Node stack_limit over. PEER STACK={_peer_stack}, BLOCK STACK={_block_stack}, Block={_block[-1]})"),
                                'Node shutdown',
                                msg_level='warning'
                                )
@@ -192,10 +197,10 @@ class NodeChecker:
                     if error_counter.push_hit():
                         pawn.console.log(f"[red] SENT {error_counter.get_data()}")
                         send_slack(
-                                url=self.config['SLACK_WH_URL'],
-                                title='[WARN] Changed Validator Status',
-                                msg_text=f"{message}, consecutive_error_count={error_counter.consecutive_count}",
-                                msg_level='warning'
+                            url=self.config['SLACK_WH_URL'],
+                            title='[WARN] Changed Validator Status',
+                            msg_text=f"{message}, consecutive_error_count={error_counter.consecutive_count}",
+                            msg_level='warning'
                         )
 
             status = dict_to_line(
@@ -217,7 +222,7 @@ def dict_compare(d1, d2):
     shared_keys = d1_keys.intersection(d2_keys)
     added = d1_keys - d2_keys
     removed = d2_keys - d1_keys
-    modified = {o : (d1[o], d2[o]) for o in shared_keys if d1[o] != d2[o]}
+    modified = {o: (d1[o], d2[o]) for o in shared_keys if d1[o] != d2[o]}
     same = set(o for o in shared_keys if d1[o] == d2[o])
     return added, removed, modified, same
 
