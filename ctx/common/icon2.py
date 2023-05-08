@@ -229,17 +229,14 @@ class WalletLoader:
 
         if self.wallet is None:
             self.wallet = KeyWallet.create()
-
-        self.print_logging(f"Create a Keystore file", "green")
+        self.print_logging("Create a Keystore file", "green")
         self.wallet.store(filename, password)  # throw exception if having an error.
         key_json = output.open_json(filename)
         self.print_logging(f"Write to file => {filename}", "green")
         output.print_json(key_json, indent=4)
-
         self.print_logging(f"Write to file => {self.keysecret_filename}", "green")
-
-        output.write_file(self.keysecret_filename, password)
-        self.print_logging(f"Stored keystore file", "yellow")
+        res2 = output.write_file(self.keysecret_filename, password)
+        self.print_logging(f"Stored keystore file::  {res2}", "yellow")
         self.print_wallet()
 
     def get_public_key(self, compressed=True):

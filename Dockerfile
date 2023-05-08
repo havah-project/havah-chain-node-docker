@@ -57,7 +57,7 @@ RUN if [ "${IS_NTP_BUILD}" == "true" ]; then \
     fi
 
 RUN pip install --no-cache-dir -r /ctx/requirements.txt
-
-#ENTRYPOINT ["/init"]
-CMD "/init"
+# remove the entrypoint from goloop image
+ENTRYPOINT []
+CMD /init
 

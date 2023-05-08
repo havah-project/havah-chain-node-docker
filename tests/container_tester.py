@@ -16,6 +16,7 @@ import time
 import timeit
 import unittest.runner
 import itertools
+from pawnlib.config import pawn
 
 _network_info_base_url = 'https://networkinfo.havah.io/node_info'
 
@@ -45,7 +46,6 @@ class ContainerTestCase(unittest.TestCase):
         "first": 0,
         "last": 0,
     }
-
 
     @staticmethod
     def log_point(msg="", color="green"):
@@ -110,7 +110,9 @@ class ContainerTestCase(unittest.TestCase):
                     content_dict[key] = replace_value
         return content_dict
 
-    def copy_docker_compose(self, src_file="./docker-compose.yml", content=None):
+    def copy_docker_compose(self, src_file=None, content=None):
+        if not src_file:
+            src_file = self.docker_compose_file
         self.log_point() if self.is_debug else False
         docker_compose_path = self.get_compose_path()
         if content is None and self.docker_compose_content:
@@ -118,14 +120,15 @@ class ContainerTestCase(unittest.TestCase):
 
         with open(src_file, 'r') as f:
             docker_compose_content = yaml.load(f, Loader=yaml.FullLoader)
-            print(f"src_file={src_file}")
             debug(before=docker_compose_content) if self.is_debug else False
 
             if content:
                 self.docker_compose_content = self.update_nested_dict(docker_compose_content, content)
                 self.docker_compose_content = self._replace_compose_value(find_key="image", replace_value=self.get_image_version())
                 self.docker_compose_content = self._replace_compose_value(find_key="SERVICE", replace_value=self.get_service())
+                self.docker_compose_content = self._replace_compose_value(find_key="container_name", replace_value=self.compose_service_name)
                 debug(after=docker_compose_content) if self.is_debug else False
+
             os.system(f"mkdir -p {docker_compose_path}/config")
             self.write_docker_compose()
 
