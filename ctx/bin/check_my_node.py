@@ -7,7 +7,7 @@ from common import icon2, base, resources
 from pawnlib.config import pawn, pconf
 from pawnlib.builder.generator import generate_banner
 from pawnlib.output import is_file, PrintRichTable, open_file, write_file, write_json
-from pawnlib.typing import sys_exit, str2bool, keys_exists, flatten, todaydate, Null
+from pawnlib.typing import sys_exit, str2bool, keys_exists, flatten, todaydate, Null, convert_dict_hex_to_int
 from pawnlib.resource import get_hostname, get_public_ip, get_local_ip
 from pawnlib.utils.icx_signer import load_wallet_key
 from pawnlib.utils.http import CallHttp, get_operator_truth, append_http
@@ -246,6 +246,24 @@ class CheckMyNode:
             endpoint=url,
             address=self._owner_address
         )
+        returns_desc = {
+            "flags": {
+                # 0: "Ok",
+                1: "Your node is disabled",
+                2: "Your node is disqualified",
+            },
+            "nonVotes":  "Your node has a history of not voting. Number of times that a validator did not participate in a block vote",
+
+        }
+        if isinstance(res, dict) and res.get('result'):
+            _res = convert_dict_hex_to_int(res)
+            for key, value in _res['result'].items():
+                if returns_desc.get(key):
+                    if isinstance(returns_desc[key], dict) and returns_desc[key].get(value):
+                        description = returns_desc[key].get(value)
+                    else:
+                        description = returns_desc.get(key)
+                    print_error_message(f"{key}={value}, {description}")
         return res
 
     @_print_result_decorator
@@ -253,6 +271,7 @@ class CheckMyNode:
         res = CallHttp(f"{url}/admin/chain").run()
         if res.response.error:
             print_error_message(res.response.error)
+            print_error_message("Your node is not running")
         else:
             if not pconf().data.env.ONLY_GOLOOP:
                 res.response.result[0]['service'] = pconf().data.env.SERVICE
