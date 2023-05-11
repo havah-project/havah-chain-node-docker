@@ -7,7 +7,7 @@ from pawnlib.config import pawn
 from pawnlib.input import PromptWithArgument
 from pawnlib.builder.generator import generate_banner
 from pawnlib.output import is_file
-from pawnlib.typing import sys_exit, str2bool
+from pawnlib.typing import sys_exit, str2bool, keys_exists
 from rich.prompt import Confirm
 import argparse
 import sys
@@ -49,7 +49,8 @@ def main():
     pawn.set(
         data=dict(
             args=args
-        )
+        ),
+        PAWN_DEBUG=debug
     )
     print_banner()
 
@@ -109,16 +110,39 @@ def main():
 
     if args.command == "create":
         wallet_loader.create_wallet(force=True)
+        validate_wallet(args.filename)
 
     elif args.command == "get":
         pawn.console.log("Load Keystore file")
-        wallet_loader.get_wallet()
+        _wallet = wallet_loader.get_wallet()
+        pawn.console.debug(f"Address: {_wallet.get_address()}")
+        pawn.console.debug(f"Public Key: {wallet_loader.get_public_key()}")
+        pawn.console.debug(f"Private Key: {_wallet.get_private_key()}")
+        pawn.console.debug(f"Password: {args.password}")
 
     elif args.command == "convert":
         pawn.console.log("Convert file")
         wallet = wallet_loader.convert_keystore()
         if wallet:
             print(wallet.get_address())
+
+
+def validate_wallet(keystore_filename=""):
+    from pawnlib.output import open_json
+    keystore_json = open_json(keystore_filename)
+    keystore_json['crypto']['cipherparams']['iv'] = "sdsdsdsd"
+
+    pawn.console.debug(f"Validating wallet - {keystore_json}")
+    if isinstance(keystore_json, dict):
+        if keys_exists(keystore_json, "crypto", "cipher") and \
+                keystore_json['crypto']['cipher'] == 'aes-128-ctr':
+            pawn.console.debug("ok crypto")
+        else:
+            pawn.console.log("[red]cipher is wrong")
+        if keys_exists(keystore_json, "crypto", "cipherparams", "iv"):
+            if len(keystore_json['crypto']['cipherparams']['iv']) != 32:
+                pawn.console.log(f"[red] Invalid iv in keystore len={len(keystore_json['crypto']['cipherparams']['iv'])}")
+                pawn.console.log("[red] Please recreate the keystore file")
 
 
 if __name__ == '__main__':

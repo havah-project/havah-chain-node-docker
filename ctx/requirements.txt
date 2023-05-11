@@ -13,7 +13,7 @@ devtools==0.10.0
 #eth-utils==1.10.0
 executing==1.2.0
 halo==0.0.31
-iconsdk==2.4.5
+iconsdk==2.0.0
 idna==3.2
 log-symbols==0.0.14
 multipledispatch==0.6.0

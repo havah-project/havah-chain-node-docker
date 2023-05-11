@@ -286,7 +286,10 @@ class WalletLoader:
         self.print_wallet()
 
     def get_public_key(self, compressed=True):
-        private_key = self.wallet._KeyWallet__private_key
+        try:
+            private_key = self.wallet._KeyWallet__private_key
+        except:
+            private_key = self.wallet.private_key
         private_obj = PrivateKey(private_key)
         return f"0x{private_obj.public_key.format(compressed=compressed).hex()}"
 
