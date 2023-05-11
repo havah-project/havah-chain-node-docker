@@ -142,8 +142,9 @@ class CheckMyNode:
 
         system_info = {
             "hostname": get_hostname(),
-            "public_ip": get_public_ip(),
-            "local_ip": get_local_ip(),
+            # "public_ip": get_public_ip(),
+            "public_ip": base.get_public_ip(),
+            "local_ip": base.get_local_ip(),
             "platform": resources.get_platform_info(),
             "memory": self.check_recommended_rules("memory", resources.get_mem_info().get('mem_total')),
             "rlimit": resources.get_rlimit_nofile(),

@@ -7,6 +7,7 @@ import string
 import random
 import requests
 import time
+import socket
 import subprocess
 
 from glob import glob
@@ -14,7 +15,7 @@ from termcolor import cprint
 from common import converter
 from config.configure import Configure as CFG
 from ffcount import ffcount
-from pawnlib.typing import str2bool
+from pawnlib.typing import str2bool, is_valid_ipv4
 from pawnlib.utils import NetworkInfo, append_http
 
 HAVAH_NETWORK_INFO = {
@@ -160,6 +161,37 @@ def get_public_ipaddr():
         return requests.get("http://checkip.amazonaws.com", verify=False).text.strip()
     except:
         return None
+
+
+def get_public_ip():
+    try:
+        public_ip = requests.get("http://checkip.amazonaws.com", verify=False).text.strip()
+        if is_valid_ipv4(public_ip):
+            return public_ip
+        else:
+            cfg.logger.error(f"An error occurred while fetching Public IP address. Invalid IPv4 address - '{public_ip}'")
+
+    except Exception as e:
+        cfg.logger.error(f"An error occurred while fetching Public IP address - {e}")
+        return ""
+
+
+def get_local_ip():
+    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    try:
+        s.connect(('10.255.255.255', 1))
+        ipaddr = s.getsockname()[0]
+    except Exception:
+        ipaddr = '127.0.0.1'
+    finally:
+        s.close()
+
+    if is_valid_ipv4(ipaddr):
+        return ipaddr
+    else:
+        cfg.logger.error("An error occurred while fetching Local IP address. Invalid IPv4 address")
+
+    return ""
 
 
 def is_docker():

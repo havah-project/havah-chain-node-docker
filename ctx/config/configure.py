@@ -14,19 +14,7 @@ from devtools import debug
 from pawnlib.typing import Null
 from pawnlib.utils.notify import send_slack, send_slack_token
 from pawnlib.config import pawn
-from pawnlib.typing import str2bool
-
-
-def get_local_ip():
-    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    try:
-        s.connect(('10.255.255.255', 1))
-        ipaddr = s.getsockname()[0]
-    except Exception:
-        ipaddr = '127.0.0.1'
-    finally:
-        s.close()
-    return ipaddr
+from pawnlib.typing import str2bool, is_valid_ipv4
 
 
 def singleton(class_):
@@ -283,6 +271,9 @@ class Configure:
 
     def get_config(self, use_file):
         service_url = f'{self.base_env["CONFIG_URL"]}/{self.base_env["SERVICE"]}'
+
+        self.validate_environment()
+
         if os.path.exists(self.base_env['CONFIG_LOCAL_FILE']) or use_file:
             self.logger.info("Load config_from_file")
             self.config_from_file()
@@ -313,14 +304,14 @@ class Configure:
                         self.config['settings']['env']['GOLOOP_KEY_STORE'] = os.getenv('GOLOOP_KEY_STORE')
                     # [network]
                     if self.base_env.get('LOCAL_TEST') is True:
-                        private_ip = get_local_ip()
+                        private_ip = self.get_local_ip()
                         port = self.config['settings']['env'].get('GOLOOP_P2P_LISTEN', ':8080').split(':')[-1]
                         self.config['settings']['env']['GOLOOP_P2P'] = f"{private_ip}:{port}"
                     else:
                         if os.getenv('GOLOOP_P2P') and os.getenv('GOLOOP_P2P') != '127.0.0.1:8080':
                             self.config['settings']['env']['GOLOOP_P2P'] = os.getenv('GOLOOP_P2P')
                         else:
-                            public_ip = requests.get('http://checkip.amazonaws.com').text.strip()
+                            public_ip = self.get_public_ip()
                             port = self.config['settings']['env'].get('GOLOOP_P2P_LISTEN', ':8080').split(':')[-1]
                             self.config['settings']['env']['GOLOOP_P2P'] = f"{public_ip}:{port}"
 
@@ -343,6 +334,39 @@ class Configure:
             self.config = converter.UpdateType(self.config, self.logger, debug=_debug).check()
         # if os.getenv('CTX_LEVEL') == 'debug':
         #     debug(self.config)
+
+    def validate_environment(self):
+        if not os.getenv('KEY_PASSWORD'):
+            self.logger.error("There is no password. Requires 'KEY_PASSWORD' environment.")
+
+    def get_public_ip(self):
+        try:
+            public_ip = requests.get("http://checkip.amazonaws.com", verify=False).text.strip()
+            if is_valid_ipv4(public_ip):
+                return public_ip
+            else:
+                self.logger.error(f"An error occurred while fetching Public IP address. Invalid IPv4 address - '{public_ip}'")
+
+        except Exception as e:
+            self.logger.error(f"An error occurred while fetching Public IP address - {e}")
+            return ""
+
+    def get_local_ip(self):
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        try:
+            s.connect(('10.255.255.255', 1))
+            ipaddr = s.getsockname()[0]
+        except Exception:
+            ipaddr = '127.0.0.1'
+        finally:
+            s.close()
+
+        if is_valid_ipv4(ipaddr):
+            return ipaddr
+        else:
+            self.logger.error("An error occurred while fetching Local IP address. Invalid IPv4 address")
+
+        return ""
 
     def set_second_env(self, dir_name):
         for env_key, env_val in self.second_env_dict.items():

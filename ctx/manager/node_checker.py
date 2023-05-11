@@ -84,8 +84,11 @@ class NodeChecker:
 
         return self._my_wallet_address
 
-    def get_peer_goloop(self, peer_info):
+    @staticmethod
+    def get_peer_goloop(peer_info):
         temp_dict = dict()
+        if keys_exists(peer_info, "module", "network", "p2p", "self", "role"):
+            temp_dict['self_role'] = peer_info["module"]["network"]["p2p"]["self"]["role"]
         temp_dict['cid'] = peer_info.get('cid', None)
         temp_dict['nid'] = peer_info.get('nid', None)
         temp_dict['height'] = peer_info.get('height', None)

@@ -11,7 +11,6 @@ from pawnlib.utils.notify import send_slack
 from pawnlib.config import pawn
 
 
-
 class InitManager:
     def __init__(self, ):
         self.cfg = CFG()  # Configure

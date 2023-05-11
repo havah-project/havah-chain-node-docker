@@ -130,8 +130,6 @@ def main():
 def validate_wallet(keystore_filename=""):
     from pawnlib.output import open_json
     keystore_json = open_json(keystore_filename)
-    keystore_json['crypto']['cipherparams']['iv'] = "sdsdsdsd"
-
     pawn.console.debug(f"Validating wallet - {keystore_json}")
     if isinstance(keystore_json, dict):
         if keys_exists(keystore_json, "crypto", "cipher") and \
