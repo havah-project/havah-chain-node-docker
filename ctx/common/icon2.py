@@ -1,7 +1,5 @@
 #!/usr/bin/env python3
 #-*- coding: utf-8 -*-
-
-
 import os
 from json import JSONDecodeError
 
@@ -14,6 +12,7 @@ from common import output, converter
 from asn1crypto import keys
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import serialization
+from pawnlib.typing import convert_dict_hex_to_int
 
 import hashlib
 from config.configure import Configure as CFG
@@ -47,9 +46,10 @@ def call_chain_score(method="", endpoint="", params=None, score_address="cx00000
             }
         }
     }
+    _endpoint_url = f"{endpoint}/api/v3"
     try:
         res = requests.post(
-            url=f"{endpoint}/api/v3",
+            url=_endpoint_url,
             json=payload,
             timeout=timeout,
         )
@@ -65,10 +65,13 @@ def call_chain_score(method="", endpoint="", params=None, score_address="cx00000
             if json_dict.get("error") and json_dict["error"].get("message"):
                 error_message = json_dict["error"].get("message")
             else:
-                error_message = f"{res.status_code} / {res.text}"
+                error_message = f"url={_endpoint_url}, status_code={res.status_code} / text={res.text} / method={method}"
             return {"error": error_message, "text": res.text}
-            # return {"error": error_message}
     except Exception as e:
+        _error = getattr(e, "__doc__", None)
+        if _error:
+            return {"error": f"{_error} {_endpoint_url}, method={method}"}
+
         return {"error": e}
 
 
@@ -81,6 +84,49 @@ def get_validator_status(endpoint=None, address=None, timeout=3):
         },
         timeout=timeout
     )
+
+
+def parse_abnormal_validator_status(status=None) -> dict:
+    reason = {
+        "flags": {
+            # 0: "Your node is normal status",
+            1: "Your node is 'disabled'.It will be increase the nonVote penalty count",
+            2: "Your node is 'disqualified' (unregistered).",
+            3: "Your node is 'disabled' and 'disqualified'.",
+
+        },
+        "nonVotes":  "Your node has a history of not voting. Number of times that a validator did not participate in a block vote",
+    }
+
+    _result = {}
+
+    from pawnlib.config import pawn
+
+    if isinstance(status, dict) and status.get('result'):
+        _res = convert_dict_hex_to_int(status)
+        for key, value in _res['result'].items():
+            if reason.get(key) and value:
+
+                if isinstance(reason[key], dict) and reason[key].get(value):
+                    description = reason[key].get(value)
+                else:
+                    description = reason.get(key)
+
+                _result[key] = {
+                    "value": value,
+                    "description": description,
+
+                }
+    return _result
+
+
+def get_parsed_validator_status(endpoint=None, address=None, timeout=3):
+    res = get_validator_status(
+        endpoint=endpoint,
+        address=address,
+        timeout=timeout
+    )
+    return parse_abnormal_validator_status(res)
 
 
 def get_validators_info(endpoint=None, data_type='all', timeout=3):

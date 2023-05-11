@@ -166,8 +166,7 @@ class Restore:
     def _send_slack(self, msg_text=None, title=None):
         if self._slack_url:
             try:
-                send_slack(
-                    url=self._slack_url,
+                self.cfg.send_auto_slack(
                     msg_text=msg_text,
                     title=title,
                     msg_level='info'

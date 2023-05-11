@@ -12,7 +12,7 @@ from common import converter
 from termcolor import cprint
 from devtools import debug
 from pawnlib.typing import Null
-from pawnlib.utils.notify import send_slack
+from pawnlib.utils.notify import send_slack, send_slack_token
 from pawnlib.config import pawn
 from pawnlib.typing import str2bool
 
@@ -90,11 +90,10 @@ class Configure:
         self.logger.error(f"{exception_string}")
 
         try:
-            send_slack(
-                url=self.config['SLACK_WH_URL'],
+            self.send_auto_slack(
                 msg_text=exception_string,
                 title='Exception error',
-                msg_level='info'
+                msg_level='error'
             )
         except:
             pass
@@ -179,6 +178,8 @@ class Configure:
                     "type": int,
                 },
                 "SLACK_WH_URL": "",
+                # "SLACK_TOKEN": "",
+                # "SLACK_CHANNEL": "",
             }
         }
         for config_key, config in _major_config.items():
@@ -195,8 +196,24 @@ class Configure:
                 pawn.console.debug(f"{config_name}={_config_value} ({type(_config_value).__name__})")
                 getattr(self, config_key, )[config_name] = _config_value
 
-    def send_slack(self, title="", msg_text="", msg_level="info"):
+    def send_auto_slack(self, title="", msg_text="", msg_level="info", url=None):
+
         pawn.console.debug(f"Try to send SLACK, SLACK_WH_URL={self.config.get('SLACK_WH_URL')}")
+        _slack_token = os.getenv('SLACK_TOKEN', None)
+        _slack_channel = os.getenv('SLACK_CHANNEL', None)
+        # _slack_token = self.config.get('SLACK_TOKEN')
+        # _slack_channel = self.config.get('SLACK_CHANNEL')
+
+        if _slack_token and _slack_channel:
+            send_slack_token(
+                token=_slack_token,
+                channel_name=_slack_channel,
+                title=title,
+                msg_level=msg_level,
+                message=msg_text,
+                send_user="CTX"
+            )
+
         if self.config.get('SLACK_WH_URL'):
             try:
                 send_slack(
@@ -295,7 +312,7 @@ class Configure:
                     else:
                         self.config['settings']['env']['GOLOOP_KEY_STORE'] = os.getenv('GOLOOP_KEY_STORE')
                     # [network]
-                    if self.base_env['LOCAL_TEST'] is True:
+                    if self.base_env.get('LOCAL_TEST') is True:
                         private_ip = get_local_ip()
                         port = self.config['settings']['env'].get('GOLOOP_P2P_LISTEN', ':8080').split(':')[-1]
                         self.config['settings']['env']['GOLOOP_P2P'] = f"{private_ip}:{port}"
@@ -306,7 +323,9 @@ class Configure:
                             public_ip = requests.get('http://checkip.amazonaws.com').text.strip()
                             port = self.config['settings']['env'].get('GOLOOP_P2P_LISTEN', ':8080').split(':')[-1]
                             self.config['settings']['env']['GOLOOP_P2P'] = f"{public_ip}:{port}"
-                    self.base_env.pop('LOCAL_TEST')
+
+                    if self.base_env.get('LOCAL_TEST'):
+                        self.base_env.pop('LOCAL_TEST')
                 else:
                     self.logger.error('No env.')
             else:

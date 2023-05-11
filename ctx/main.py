@@ -25,7 +25,7 @@ def main():
 
     if cfg.base_env['ONLY_GOLOOP'] is True:
         cfg.logger.info('Using ONLY_GOLOOP')
-        cfg.send_slack(
+        cfg.send_auto_slack(
             title='Starting Node [ONLY_GOLOOP]',
             msg_text=cfg.export_major_config(),
             msg_level='info'
