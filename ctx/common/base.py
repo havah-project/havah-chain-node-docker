@@ -22,10 +22,12 @@ HAVAH_NETWORK_INFO = {
     "mainnet": {
         "nid": "0x100",
         "cid": "0xfca3fc",
+        "seed": "seed.havah.io:7100"
     },
     "vega": {
         "nid": "0x101",
         "cid": "0x630a4",
+        "seed": "seed.vega.havah.io:7100"
     }
 }
 
@@ -213,6 +215,7 @@ def get_environments():
         "PUBLIC_ENDPOINT": "",
         "NODE_ADDRESS": "",
         "PLATFORM": 'havah',
+        "SEEDS": "",
     }
     env_dict = {}
     for key, default_value in environment_defaults.items():
@@ -220,9 +223,20 @@ def get_environments():
             default_value = default_value.lower()
         elif key == "ONLY_GOLOOP":
             default_value = str2bool(default_value)
-
         env_dict[key] = os.getenv(key, default_value)
+
+    expected_havah_network = get_expected_havah_network(env_dict.get('SERVICE'))
+    if not check_exist_dict_value(env_dict, "SEEDS") and expected_havah_network:
+        env_dict['SEEDS'] = expected_havah_network.get('seed')
+
     return env_dict
+
+
+def check_exist_dict_value(data, key):
+    if isinstance(data, dict) and key in data and data.get(key):
+        _value = data.get(key)
+        return True
+    return False
 
 
 def get_public_endpoint(network_name=None, platform="havah"):

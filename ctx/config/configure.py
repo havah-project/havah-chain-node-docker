@@ -275,7 +275,7 @@ class Configure:
         self.validate_environment()
 
         if os.path.exists(self.base_env['CONFIG_LOCAL_FILE']) or use_file:
-            self.logger.info("Load config_from_file")
+            self.logger.info(f"Load config_from_file. file_exists={os.path.exists(self.base_env['CONFIG_LOCAL_FILE'])} ")
             self.config_from_file()
         else:
             config_url = f'{service_url}/{self.base_env["CONFIG_URL_FILE"]}'

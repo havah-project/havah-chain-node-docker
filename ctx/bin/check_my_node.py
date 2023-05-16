@@ -8,7 +8,7 @@ from pawnlib.config import pawn, pconf
 from pawnlib.builder.generator import generate_banner
 from pawnlib.output import is_file, PrintRichTable, open_file, write_file, write_json
 from pawnlib.typing import sys_exit, str2bool, keys_exists, flatten, todaydate, Null, convert_dict_hex_to_int
-from pawnlib.resource import get_hostname, get_public_ip, get_local_ip
+from pawnlib.resource import get_hostname, get_public_ip, get_local_ip, check_port
 from pawnlib.utils.icx_signer import load_wallet_key
 from pawnlib.utils.http import CallHttp, get_operator_truth, append_http, NetworkInfo
 from ast import literal_eval
@@ -58,9 +58,9 @@ class CheckMyNode:
 
     def run(self):
         pawn.console.debug(f"Service: {self._env.get('SERVICE')}, public endpoint: {self._public_endpoint}, local endpoint: {self._local_endpoint}")
-
         self.check_system_information()
         self.check_environments()
+        self.check_connectivity_to_seed()
         self.check_wallet()
         self.find_my_owner_key(url=self._public_endpoint)
         self.check_validator_info(self._public_endpoint)
@@ -153,6 +153,36 @@ class CheckMyNode:
         return system_info
 
     @_print_result_decorator
+    def check_connectivity_to_seed(self):
+        _seed_env = self._env.get('SEEDS')
+        from concurrent import futures
+        from pawnlib.output import classdump
+
+        if not _seed_env:
+            print_error_message("SEEDS environment variable not set")
+        else:
+            _seeds = [seed.strip() for seed in _seed_env.split(',')]
+            with pawn.console.status("Check seeds") as status:
+                with futures.ThreadPoolExecutor(max_workers=3) as executor:
+                    _results = [
+                        executor.submit(self._check_port, _seed, status)
+                        for _seed in _seeds
+                    ]
+                    results = []
+                    # results = [_result.result() for _result in futures.as_completed(_results)]
+                    for i, result in enumerate(futures.as_completed(_results)):
+                        if not result.result().get('result'):
+                            print_error_message(f"Cannot connect to {result.result().get('seed')}. Please check your outbound network or Firewall")
+                        results.append(result.result())
+                    return results
+
+    @staticmethod
+    def _check_port(seed=None, status=None):
+        status.update(f"Trying to connect the '{seed}'")
+        result = check_port(seed)
+        return {"seed": seed, "result": result}
+
+    @_print_result_decorator
     def check_wallet(self):
         conf = pconf()
         keystore_file = ""
@@ -193,7 +223,6 @@ class CheckMyNode:
         except Exception as e:
             print_error_message(f"Failed to load wallet - {e}")
             wallet = {}
-
         return wallet
 
     @_print_result_decorator
@@ -255,26 +284,29 @@ class CheckMyNode:
 
     @_print_result_decorator
     def check_node_status(self, url=None, kind=None):
-        _expected_nid = ""
-        if pconf().data.env.SERVICE:
-            _expected_nid = base.get_expected_nid(pconf().data.env.SERVICE)
-
-        res = CallHttp(f"{url}/admin/chain").run()
-        if res.response.error:
-            print_error_message(res.response.error)
-            print_error_message("Your node is not running")
+        if not check_port(url):
+            print_error_message(f"Cannot connect to {url}")
         else:
-            nid = res.response.result[0]['nid']
-            if _expected_nid and nid != _expected_nid:
-                print_error_message(f"Something went wrong. Please check your SERVICE environment or database. {nid} != {_expected_nid}")
-                pawn.console.log(f"[yellow]{pconf().data.env.SERVICE} expected nid={_expected_nid}")
-                expected_service = base.get_expected_service(nid)
-                if expected_service:
-                    pawn.console.log(f"[yellow]This seems to be a database for '{expected_service}'")
+            _expected_nid = ""
+            if pconf().data.env.SERVICE:
+                _expected_nid = base.get_expected_nid(pconf().data.env.SERVICE)
 
-            if not pconf().data.env.ONLY_GOLOOP:
-                res.response.result[0]['service'] = pconf().data.env.SERVICE
-            return res.response.result[0]
+            res = CallHttp(f"{url}/admin/chain").run()
+            if res.response.error:
+                print_error_message(res.response.error)
+                print_error_message("Your node is not running")
+            else:
+                nid = res.response.result[0]['nid']
+                if _expected_nid and nid != _expected_nid:
+                    print_error_message(f"Something went wrong. Please check your SERVICE environment or database. {nid} != {_expected_nid}")
+                    pawn.console.log(f"[yellow]{pconf().data.env.SERVICE} expected nid={_expected_nid}")
+                    expected_service = base.get_expected_service(nid)
+                    if expected_service:
+                        pawn.console.log(f"[yellow]This seems to be a database for '{expected_service}'")
+
+                if not pconf().data.env.ONLY_GOLOOP:
+                    res.response.result[0]['service'] = pconf().data.env.SERVICE
+                return res.response.result[0]
 
         return {}
 
