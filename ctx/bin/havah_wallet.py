@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 import append_parent_path
-from common import icon2, base
+from common import icon2, base, typing
 from pawnlib.config import pawn
 from pawnlib.input import PromptWithArgument
 from pawnlib.builder.generator import generate_banner
@@ -60,10 +60,15 @@ def main():
 
     pawn.console.log(f"It will be [bold]{args.command}[/bold] wallet")
 
+    key_store_filename = os.getenv('KEY_STORE_FILENAME', "keystore.json")
+    if not key_store_filename:
+        pawn.console.log(f"[yellow]'KEY_STORE_FILENAME'[/yellow] environment variable is not defined. {key_store_filename}")
+        key_store_filename = "keystore.json"
+
     if not args.filename:
         PromptWithArgument(
             message="Enter a filename for wallet:",
-            default=f"{config_dir}/keystore.json",
+            default=f"{config_dir}/{key_store_filename}",
             invalid_message="Requires at least one character.",
             argument="filename",
             validate=lambda result: len(result) >= 1,
@@ -110,10 +115,11 @@ def main():
 
     if args.command == "create":
         wallet_loader.create_wallet(force=True)
-        validate_wallet(args.filename)
+        typing.validate_wallet(args.filename)
 
     elif args.command == "get":
         pawn.console.log("Load Keystore file")
+        typing.validate_wallet(args.filename)
         _wallet = wallet_loader.get_wallet()
         pawn.console.debug(f"Address: {_wallet.get_address()}")
         pawn.console.debug(f"Public Key: {wallet_loader.get_public_key()}")
@@ -125,22 +131,6 @@ def main():
         wallet = wallet_loader.convert_keystore()
         if wallet:
             print(wallet.get_address())
-
-
-def validate_wallet(keystore_filename=""):
-    from pawnlib.output import open_json
-    keystore_json = open_json(keystore_filename)
-    pawn.console.debug(f"Validating wallet - {keystore_json}")
-    if isinstance(keystore_json, dict):
-        if keys_exists(keystore_json, "crypto", "cipher") and \
-                keystore_json['crypto']['cipher'] == 'aes-128-ctr':
-            pawn.console.debug("ok crypto")
-        else:
-            pawn.console.log("[red]cipher is wrong")
-        if keys_exists(keystore_json, "crypto", "cipherparams", "iv"):
-            if len(keystore_json['crypto']['cipherparams']['iv']) != 32:
-                pawn.console.log(f"[red] Invalid iv in keystore len={len(keystore_json['crypto']['cipherparams']['iv'])}")
-                pawn.console.log("[red] Please recreate the keystore file")
 
 
 if __name__ == '__main__':

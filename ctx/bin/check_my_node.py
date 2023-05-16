@@ -3,7 +3,7 @@
 import append_parent_path
 import os
 import argparse
-from common import icon2, base, resources
+from common import icon2, base, resources, typing
 from pawnlib.config import pawn, pconf
 from pawnlib.builder.generator import generate_banner
 from pawnlib.output import is_file, PrintRichTable, open_file, write_file, write_json
@@ -220,6 +220,11 @@ class CheckMyNode:
             if not conf.PAWN_DEBUG:
                 del wallet['private_key']
                 del wallet['public_key_long']
+
+            validate_result = typing.validate_wallet(keystore_filename=keystore_file, print_error=False)
+            if not validate_result.get('result'):
+                print_error_message(f"{validate_result.get('reason')}. Please recreate the wallet.")
+
         except Exception as e:
             print_error_message(f"Failed to load wallet - {e}")
             wallet = {}
