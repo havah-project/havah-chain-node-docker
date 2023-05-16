@@ -44,4 +44,3 @@ else
   echo "[ERROR] Number of arguments must be one. Select one of [ check_wallet, create_wallet, check_node, send_log ]"
   exit 1
 fi
-

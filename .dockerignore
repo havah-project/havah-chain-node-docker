@@ -1,3 +1,4 @@
-data
-logs
+data/*
+logs/*
 tests/goloop_container/*
+test*/*

@@ -2,12 +2,12 @@
 # -*- coding: utf-8 -*-
 
 import append_parent_path
-from common import icon2, base
+from common import icon2, base, typing
 from pawnlib.config import pawn
 from pawnlib.input import PromptWithArgument
 from pawnlib.builder.generator import generate_banner
 from pawnlib.output import is_file
-from pawnlib.typing import sys_exit, str2bool
+from pawnlib.typing import sys_exit, str2bool, keys_exists
 from rich.prompt import Confirm
 import argparse
 import sys
@@ -49,7 +49,8 @@ def main():
     pawn.set(
         data=dict(
             args=args
-        )
+        ),
+        PAWN_DEBUG=debug
     )
     print_banner()
 
@@ -59,10 +60,15 @@ def main():
 
     pawn.console.log(f"It will be [bold]{args.command}[/bold] wallet")
 
+    key_store_filename = os.getenv('KEY_STORE_FILENAME', "keystore.json")
+    if not key_store_filename:
+        pawn.console.log(f"[yellow]'KEY_STORE_FILENAME'[/yellow] environment variable is not defined. {key_store_filename}")
+        key_store_filename = "keystore.json"
+
     if not args.filename:
         PromptWithArgument(
             message="Enter a filename for wallet:",
-            default=f"{config_dir}/keystore.json",
+            default=f"{config_dir}/{key_store_filename}",
             invalid_message="Requires at least one character.",
             argument="filename",
             validate=lambda result: len(result) >= 1,
@@ -109,10 +115,16 @@ def main():
 
     if args.command == "create":
         wallet_loader.create_wallet(force=True)
+        typing.validate_wallet(args.filename)
 
     elif args.command == "get":
         pawn.console.log("Load Keystore file")
-        wallet_loader.get_wallet()
+        typing.validate_wallet(args.filename)
+        _wallet = wallet_loader.get_wallet()
+        pawn.console.debug(f"Address: {_wallet.get_address()}")
+        pawn.console.debug(f"Public Key: {wallet_loader.get_public_key()}")
+        pawn.console.debug(f"Private Key: {_wallet.get_private_key()}")
+        pawn.console.debug(f"Password: {args.password}")
 
     elif args.command == "convert":
         pawn.console.log("Convert file")

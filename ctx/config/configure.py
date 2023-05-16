@@ -12,21 +12,9 @@ from common import converter
 from termcolor import cprint
 from devtools import debug
 from pawnlib.typing import Null
-from pawnlib.utils.notify import send_slack
+from pawnlib.utils.notify import send_slack, send_slack_token
 from pawnlib.config import pawn
-from pawnlib.typing import str2bool
-
-
-def get_local_ip():
-    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    try:
-        s.connect(('10.255.255.255', 1))
-        ipaddr = s.getsockname()[0]
-    except Exception:
-        ipaddr = '127.0.0.1'
-    finally:
-        s.close()
-    return ipaddr
+from pawnlib.typing import str2bool, is_valid_ipv4
 
 
 def singleton(class_):
@@ -90,11 +78,10 @@ class Configure:
         self.logger.error(f"{exception_string}")
 
         try:
-            send_slack(
-                url=self.config['SLACK_WH_URL'],
+            self.send_auto_slack(
                 msg_text=exception_string,
                 title='Exception error',
-                msg_level='info'
+                msg_level='error'
             )
         except:
             pass
@@ -179,6 +166,8 @@ class Configure:
                     "type": int,
                 },
                 "SLACK_WH_URL": "",
+                # "SLACK_TOKEN": "",
+                # "SLACK_CHANNEL": "",
             }
         }
         for config_key, config in _major_config.items():
@@ -195,8 +184,24 @@ class Configure:
                 pawn.console.debug(f"{config_name}={_config_value} ({type(_config_value).__name__})")
                 getattr(self, config_key, )[config_name] = _config_value
 
-    def send_slack(self, title="", msg_text="", msg_level="info"):
+    def send_auto_slack(self, title="", msg_text="", msg_level="info", url=None):
+
         pawn.console.debug(f"Try to send SLACK, SLACK_WH_URL={self.config.get('SLACK_WH_URL')}")
+        _slack_token = os.getenv('SLACK_TOKEN', None)
+        _slack_channel = os.getenv('SLACK_CHANNEL', None)
+        # _slack_token = self.config.get('SLACK_TOKEN')
+        # _slack_channel = self.config.get('SLACK_CHANNEL')
+
+        if _slack_token and _slack_channel:
+            send_slack_token(
+                token=_slack_token,
+                channel_name=_slack_channel,
+                title=title,
+                msg_level=msg_level,
+                message=msg_text,
+                send_user="CTX"
+            )
+
         if self.config.get('SLACK_WH_URL'):
             try:
                 send_slack(
@@ -266,8 +271,11 @@ class Configure:
 
     def get_config(self, use_file):
         service_url = f'{self.base_env["CONFIG_URL"]}/{self.base_env["SERVICE"]}'
+
+        self.validate_environment()
+
         if os.path.exists(self.base_env['CONFIG_LOCAL_FILE']) or use_file:
-            self.logger.info("Load config_from_file")
+            self.logger.info(f"Load config_from_file. file_exists={os.path.exists(self.base_env['CONFIG_LOCAL_FILE'])} ")
             self.config_from_file()
         else:
             config_url = f'{service_url}/{self.base_env["CONFIG_URL_FILE"]}'
@@ -295,18 +303,20 @@ class Configure:
                     else:
                         self.config['settings']['env']['GOLOOP_KEY_STORE'] = os.getenv('GOLOOP_KEY_STORE')
                     # [network]
-                    if self.base_env['LOCAL_TEST'] is True:
-                        private_ip = get_local_ip()
+                    if self.base_env.get('LOCAL_TEST') is True:
+                        private_ip = self.get_local_ip()
                         port = self.config['settings']['env'].get('GOLOOP_P2P_LISTEN', ':8080').split(':')[-1]
                         self.config['settings']['env']['GOLOOP_P2P'] = f"{private_ip}:{port}"
                     else:
                         if os.getenv('GOLOOP_P2P') and os.getenv('GOLOOP_P2P') != '127.0.0.1:8080':
                             self.config['settings']['env']['GOLOOP_P2P'] = os.getenv('GOLOOP_P2P')
                         else:
-                            public_ip = requests.get('http://checkip.amazonaws.com').text.strip()
+                            public_ip = self.get_public_ip()
                             port = self.config['settings']['env'].get('GOLOOP_P2P_LISTEN', ':8080').split(':')[-1]
                             self.config['settings']['env']['GOLOOP_P2P'] = f"{public_ip}:{port}"
-                    self.base_env.pop('LOCAL_TEST')
+
+                    if self.base_env.get('LOCAL_TEST'):
+                        self.base_env.pop('LOCAL_TEST')
                 else:
                     self.logger.error('No env.')
             else:
@@ -324,6 +334,39 @@ class Configure:
             self.config = converter.UpdateType(self.config, self.logger, debug=_debug).check()
         # if os.getenv('CTX_LEVEL') == 'debug':
         #     debug(self.config)
+
+    def validate_environment(self):
+        if not os.getenv('KEY_PASSWORD'):
+            self.logger.error("There is no password. Requires 'KEY_PASSWORD' environment.")
+
+    def get_public_ip(self):
+        try:
+            public_ip = requests.get("http://checkip.amazonaws.com", verify=False).text.strip()
+            if is_valid_ipv4(public_ip):
+                return public_ip
+            else:
+                self.logger.error(f"An error occurred while fetching Public IP address. Invalid IPv4 address - '{public_ip}'")
+
+        except Exception as e:
+            self.logger.error(f"An error occurred while fetching Public IP address - {e}")
+            return ""
+
+    def get_local_ip(self):
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        try:
+            s.connect(('10.255.255.255', 1))
+            ipaddr = s.getsockname()[0]
+        except Exception:
+            ipaddr = '127.0.0.1'
+        finally:
+            s.close()
+
+        if is_valid_ipv4(ipaddr):
+            return ipaddr
+        else:
+            self.logger.error("An error occurred while fetching Local IP address. Invalid IPv4 address")
+
+        return ""
 
     def set_second_env(self, dir_name):
         for env_key, env_val in self.second_env_dict.items():

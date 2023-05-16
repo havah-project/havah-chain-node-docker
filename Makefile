@@ -1,6 +1,7 @@
 REPO_HUB = havah
 NAME = chain-node
-VERSION = v1.1.0-rc.5
+VERSION = v1.1.0
+POSTFIX_VERSION = ""
 NTP_VERSION = ntp-4.2.8p15
 IS_LOCAL = true
 BASE_IMAGE = goloop-havah
@@ -47,6 +48,11 @@ endif
 # 0 = normal mode ( citizen )  0->1(o)   ( cant connect to 3 )
 
 TAGNAME = $(VERSION)
+
+ifdef POSTFIX_VERSION
+	TAGNAME = $(VERSION)$(POSTFIX_VERSION)
+endif
+
 VCS_REF = $(strip $(shell git rev-parse --short HEAD))
 BUILD_DATE = $(strip $(shell date -u +"%Y-%m-%dT%H:%M:%S%Z"))
 GIT_DIRTY  = $(shell cd ${GOLOOP_PATH}; git diff --shortstat 2> /dev/null | tail -n1 )

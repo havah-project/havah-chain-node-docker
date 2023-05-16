@@ -3,14 +3,14 @@
 import append_parent_path
 import os
 import argparse
-from common import icon2, base, resources
+from common import icon2, base, resources, typing
 from pawnlib.config import pawn, pconf
 from pawnlib.builder.generator import generate_banner
 from pawnlib.output import is_file, PrintRichTable, open_file, write_file, write_json
-from pawnlib.typing import sys_exit, str2bool, keys_exists, flatten, todaydate, Null
-from pawnlib.resource import get_hostname, get_public_ip, get_local_ip
+from pawnlib.typing import sys_exit, str2bool, keys_exists, flatten, todaydate, Null, convert_dict_hex_to_int
+from pawnlib.resource import get_hostname, get_public_ip, get_local_ip, check_port
 from pawnlib.utils.icx_signer import load_wallet_key
-from pawnlib.utils.http import CallHttp, get_operator_truth, append_http
+from pawnlib.utils.http import CallHttp, get_operator_truth, append_http, NetworkInfo
 from ast import literal_eval
 from functools import partial
 from copy import deepcopy
@@ -19,7 +19,7 @@ from copy import deepcopy
 class CheckMyNode:
     def __init__(self, is_write_file=False):
         self._conf = pconf()
-        self._env = get_environments()
+        self._env = base.get_environments()
         self._node_address = self._env.get('NODE_ADDRESS', '')
         self._owner_address = None
         self.result = {}
@@ -36,7 +36,6 @@ class CheckMyNode:
         )
         self._local_endpoint = None
         self._public_endpoint = None
-
         self.set_endpoint()
 
     def set_endpoint(self):
@@ -49,7 +48,8 @@ class CheckMyNode:
         if self._env.get('PUBLIC_ENDPOINT'):
             self._public_endpoint = self._env.get('PUBLIC_ENDPOINT')
         else:
-            self._public_endpoint = get_endpoint()
+            self._public_endpoint = base.get_public_endpoint()
+
         if not self._public_endpoint:
             self._public_endpoint = self._local_endpoint
 
@@ -58,9 +58,9 @@ class CheckMyNode:
 
     def run(self):
         pawn.console.debug(f"Service: {self._env.get('SERVICE')}, public endpoint: {self._public_endpoint}, local endpoint: {self._local_endpoint}")
-
         self.check_system_information()
         self.check_environments()
+        self.check_connectivity_to_seed()
         self.check_wallet()
         self.find_my_owner_key(url=self._public_endpoint)
         self.check_validator_info(self._public_endpoint)
@@ -142,14 +142,45 @@ class CheckMyNode:
 
         system_info = {
             "hostname": get_hostname(),
-            "public_ip": get_public_ip(),
-            "local_ip": get_local_ip(),
+            # "public_ip": get_public_ip(),
+            "public_ip": base.get_public_ip(),
+            "local_ip": base.get_local_ip(),
             "platform": resources.get_platform_info(),
             "memory": self.check_recommended_rules("memory", resources.get_mem_info().get('mem_total')),
             "rlimit": resources.get_rlimit_nofile(),
 
         }
         return system_info
+
+    @_print_result_decorator
+    def check_connectivity_to_seed(self):
+        _seed_env = self._env.get('SEEDS')
+        from concurrent import futures
+        from pawnlib.output import classdump
+
+        if not _seed_env:
+            print_error_message("SEEDS environment variable not set")
+        else:
+            _seeds = [seed.strip() for seed in _seed_env.split(',')]
+            with pawn.console.status("Check seeds") as status:
+                with futures.ThreadPoolExecutor(max_workers=3) as executor:
+                    _results = [
+                        executor.submit(self._check_port, _seed, status)
+                        for _seed in _seeds
+                    ]
+                    results = []
+                    # results = [_result.result() for _result in futures.as_completed(_results)]
+                    for i, result in enumerate(futures.as_completed(_results)):
+                        if not result.result().get('result'):
+                            print_error_message(f"Cannot connect to {result.result().get('seed')}. Please check your outbound network or Firewall")
+                        results.append(result.result())
+                    return results
+
+    @staticmethod
+    def _check_port(seed=None, status=None):
+        status.update(f"Trying to connect the '{seed}'")
+        result = check_port(seed)
+        return {"seed": seed, "result": result}
 
     @_print_result_decorator
     def check_wallet(self):
@@ -189,10 +220,14 @@ class CheckMyNode:
             if not conf.PAWN_DEBUG:
                 del wallet['private_key']
                 del wallet['public_key_long']
+
+            validate_result = typing.validate_wallet(keystore_filename=keystore_file, print_error=False)
+            if not validate_result.get('result'):
+                print_error_message(f"{validate_result.get('reason')}. Please recreate the wallet.")
+
         except Exception as e:
             print_error_message(f"Failed to load wallet - {e}")
             wallet = {}
-
         return wallet
 
     @_print_result_decorator
@@ -246,17 +281,37 @@ class CheckMyNode:
             endpoint=url,
             address=self._owner_address
         )
+        parsed_status = icon2.parse_abnormal_validator_status(res)
+        for key, v in parsed_status.items():
+            print_error_message(f"{key}={v.get('value')}, [yellow]{v.get('description')}[/yellow]")
+
         return res
 
     @_print_result_decorator
     def check_node_status(self, url=None, kind=None):
-        res = CallHttp(f"{url}/admin/chain").run()
-        if res.response.error:
-            print_error_message(res.response.error)
+        if not check_port(url):
+            print_error_message(f"Cannot connect to {url}")
         else:
-            if not pconf().data.env.ONLY_GOLOOP:
-                res.response.result[0]['service'] = pconf().data.env.SERVICE
-            return res.response.result[0]
+            _expected_nid = ""
+            if pconf().data.env.SERVICE:
+                _expected_nid = base.get_expected_nid(pconf().data.env.SERVICE)
+
+            res = CallHttp(f"{url}/admin/chain").run()
+            if res.response.error:
+                print_error_message(res.response.error)
+                print_error_message("Your node is not running")
+            else:
+                nid = res.response.result[0]['nid']
+                if _expected_nid and nid != _expected_nid:
+                    print_error_message(f"Something went wrong. Please check your SERVICE environment or database. {nid} != {_expected_nid}")
+                    pawn.console.log(f"[yellow]{pconf().data.env.SERVICE} expected nid={_expected_nid}")
+                    expected_service = base.get_expected_service(nid)
+                    if expected_service:
+                        pawn.console.log(f"[yellow]This seems to be a database for '{expected_service}'")
+
+                if not pconf().data.env.ONLY_GOLOOP:
+                    res.response.result[0]['service'] = pconf().data.env.SERVICE
+                return res.response.result[0]
 
         return {}
 
@@ -282,46 +337,6 @@ class CheckMyNode:
             print_error_message(f"Failed to fetch state from {message} endpoint")
 
 
-def get_endpoint():
-    default_endpoints = {
-        "mainnet": "https://ctz.havah.io",
-        "vega": "https://ctz.vega.havah.io",
-    }
-
-    if pconf().data.env.ENDPOINT:
-        return pconf().data.env.ENDPOINT
-    elif default_endpoints.get(pconf().data.env.SERVICE.lower()):
-        return default_endpoints[pconf().data.env.SERVICE.lower()]
-    else:
-        return None
-
-
-def get_environments():
-    environment_defaults = {
-        "BASE_DIR": "/goloop",
-        "GOLOOP_KEY_SECRET": "/goloop/config/keysecret",
-        "KEY_STORE_FILENAME": "",
-        "GOLOOP_KEY_STORE": "",
-        "KEY_PASSWORD": '',
-        "GOLOOP_RPC_ADDR": ":9000",
-        "SERVICE": "MainNet",
-        "ONLY_GOLOOP": False,
-        "ENDPOINT": "",
-        "LOCAL_ENDPOINT": "",
-        "PUBLIC_ENDPOINT": "",
-        "NODE_ADDRESS": "",
-    }
-    env_dict = {}
-    for key, default_value in environment_defaults.items():
-        if key == "SERVICE" and default_value:
-            default_value = default_value.lower()
-        elif key == "ONLY_GOLOOP":
-            default_value = str2bool(default_value)
-
-        env_dict[key] = os.getenv(key, default_value)
-    return env_dict
-
-
 def print_banner():
     print(generate_banner("Check my node", description="check my node", author="jinwoo", version="0.2", font="smslant"))
 
@@ -342,7 +357,7 @@ def main():
 
     pawn.set(
         data=dict(
-            env=get_environments(),
+            env=base.get_environments(),
             result={}
         ),
     )

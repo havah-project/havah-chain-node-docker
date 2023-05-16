@@ -7,6 +7,7 @@ import string
 import random
 import requests
 import time
+import socket
 import subprocess
 
 from glob import glob
@@ -14,6 +15,21 @@ from termcolor import cprint
 from common import converter
 from config.configure import Configure as CFG
 from ffcount import ffcount
+from pawnlib.typing import str2bool, is_valid_ipv4
+from pawnlib.utils import NetworkInfo, append_http
+
+HAVAH_NETWORK_INFO = {
+    "mainnet": {
+        "nid": "0x100",
+        "cid": "0xfca3fc",
+        "seed": "seed.havah.io:7100"
+    },
+    "vega": {
+        "nid": "0x101",
+        "cid": "0x630a4",
+        "seed": "seed.vega.havah.io:7100"
+    }
+}
 
 cfg = CFG()
 
@@ -149,5 +165,123 @@ def get_public_ipaddr():
         return None
 
 
+def get_public_ip():
+    try:
+        public_ip = requests.get("http://checkip.amazonaws.com", verify=False).text.strip()
+        if is_valid_ipv4(public_ip):
+            return public_ip
+        else:
+            cfg.logger.error(f"An error occurred while fetching Public IP address. Invalid IPv4 address - '{public_ip}'")
+
+    except Exception as e:
+        cfg.logger.error(f"An error occurred while fetching Public IP address - {e}")
+        return ""
+
+
+def get_local_ip():
+    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    try:
+        s.connect(('10.255.255.255', 1))
+        ipaddr = s.getsockname()[0]
+    except Exception:
+        ipaddr = '127.0.0.1'
+    finally:
+        s.close()
+
+    if is_valid_ipv4(ipaddr):
+        return ipaddr
+    else:
+        cfg.logger.error("An error occurred while fetching Local IP address. Invalid IPv4 address")
+
+    return ""
+
+
 def is_docker():
     return converter.str2bool(os.environ.get("IS_DOCKER", False))
+
+
+def get_environments():
+    environment_defaults = {
+        "BASE_DIR": "/goloop",
+        "GOLOOP_KEY_SECRET": "/goloop/config/keysecret",
+        "KEY_STORE_FILENAME": "",
+        "GOLOOP_KEY_STORE": "",
+        "KEY_PASSWORD": '',
+        "GOLOOP_RPC_ADDR": ":9000",
+        "SERVICE": "MainNet",
+        "ONLY_GOLOOP": False,
+        "ENDPOINT": "",
+        "LOCAL_ENDPOINT": "",
+        "PUBLIC_ENDPOINT": "",
+        "NODE_ADDRESS": "",
+        "PLATFORM": 'havah',
+        "SEEDS": "",
+    }
+    env_dict = {}
+    for key, default_value in environment_defaults.items():
+        if key == "SERVICE" and default_value:
+            default_value = default_value.lower()
+        elif key == "ONLY_GOLOOP":
+            default_value = str2bool(default_value)
+        env_dict[key] = os.getenv(key, default_value)
+
+    expected_havah_network = get_expected_havah_network(env_dict.get('SERVICE'))
+    if not check_exist_dict_value(env_dict, "SEEDS") and expected_havah_network:
+        env_dict['SEEDS'] = expected_havah_network.get('seed')
+
+    return env_dict
+
+
+def check_exist_dict_value(data, key):
+    if isinstance(data, dict) and key in data and data.get(key):
+        _value = data.get(key)
+        return True
+    return False
+
+
+def get_public_endpoint(network_name=None, platform="havah"):
+    if os.getenv('ENDPOINT'):
+        return append_http(os.getenv('ENDPOINT'))
+
+    if os.getenv('PUBLIC_ENDPOINT'):
+        return append_http(os.getenv('PUBLIC_ENDPOINT'))
+
+    if not network_name:
+        network_name = os.getenv('SERVICE', 'MainNet')
+
+    if network_name:
+        if "veganet" == network_name.lower().strip():
+            network_name = "Vega"
+        elif "denebnet" == network_name.lower().strip():
+            network_name = "deneb"
+    try:
+        network_info = NetworkInfo(network_name=network_name, platform=platform)
+        return network_info.network_api
+    except Exception as e:
+        cfg.logger.error(f"'{network_name}' is invalid network name. Cannot found public endpoint. {e} or You can use 'PUBLIC_ENDPOINT' environment ")
+        return ""
+
+
+def get_expected_havah_network(network_name=None):
+    if network_name:
+        _network_name = network_name.lower().strip()
+        if _network_name == "veganet":
+            _network_name = "vega"
+        elif _network_name == "denebnet":
+            _network_name = "deneb"
+        return HAVAH_NETWORK_INFO.get(_network_name, {})
+    return {}
+
+
+def get_expected_nid(network_name=None):
+    res = get_expected_havah_network(network_name)
+    if res.get('nid'):
+        return res.get('nid')
+    return ""
+
+
+def get_expected_service(nid=""):
+    for service_name, values in HAVAH_NETWORK_INFO.items():
+        if values.get('nid') == nid:
+            return service_name
+    return ""

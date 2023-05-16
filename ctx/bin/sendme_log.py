@@ -19,8 +19,11 @@ from halo import Halo
 import requests
 from multiprocessing.pool import ThreadPool
 from timeit import default_timer
+from pawnlib.config import pawn
 
 version = "0.3"
+ENVIRONMENT = base.get_environments()
+
 region_info = {
     "Seoul": ".s3",
     "Tokyo": "-jp.s3",
@@ -192,7 +195,7 @@ def get_file_info(file):
 def get_parser():
     parser = argparse.ArgumentParser(description='Send me log')
     parser.add_argument('-f', '--find', action='count', help=f'Find fastest region, just checking', default=0)
-    parser.add_argument('--network', type=str, help=f'Network name', choices=["MainNet", "SejongNet"], default="MainNet")
+    parser.add_argument('--network', type=str, help=f'Network name', default=ENVIRONMENT.get('SERVICE', "MainNet"))
     parser.add_argument('-d', '--log-dir', metavar='log-dir', type=str, help=f'log directory location', default=None)
     parser.add_argument('--static-dir', metavar='static-dir', type=str, nargs="+", help=f'include log directory location', default=None)
 
@@ -281,12 +284,12 @@ class SendLog:
     def find_log(self):
         if check_file_type(self.log_dir) == "dir":
             self.last_modified = get_file_info(self.log_dir).get("date")
-            print(self.last_modified)
+            pawn.console.print(f"last_modified={self.last_modified}")
         else:
             cprint(f"[ERROR] '{self.log_dir}' is not directory", "red")
             raise SystemExit()
 
-        print(f"dirname = {self.log_dir}")
+        pawn.console.print(f"Target directory = {self.log_dir}")
 
         try:
             filenames = os.listdir(self.log_dir)
@@ -332,7 +335,7 @@ class SendLog:
                 if is_append:
                     self.upload_target_files.append(file['full_filename'])
                     print(f"[{file_count:^3}] [{self.upload_target_date:^8}] :: {file['full_filename']:40}  "
-                          f"{file['size']:10} {file['date']} ({diff_date.days})")
+                          f"{file['size']:10} {file['date']} ({diff_date.days} days)")
                     file_count += 1
 
     def compress_zip(self):
@@ -343,8 +346,8 @@ class SendLog:
             try:
                 print(f" -> {filename}")
                 zip_handler.write(filename,
-                          os.path.relpath(filename),
-                          compress_type=zipfile.ZIP_DEFLATED)
+                                  os.path.relpath(filename),
+                                  compress_type=zipfile.ZIP_DEFLATED)
             except Exception as e:
                 cprint(f"[ERR] {e}")
                 spinner.fail(f'Fail {e}')
@@ -404,7 +407,7 @@ if __name__ == '__main__':
     if args.name:
         name = args.name
     else:
-        name = input("Enter your validator-name: ")
+        name = input("\nEnter your validator-name: ")
 
     upload_filename = f"HAVAH-{name}-{base.get_public_ipaddr()}-{converter.todaydate('file')}.zip"
 
