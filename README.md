@@ -2,6 +2,14 @@
 
 #### Welcome to the havah-chain-node-docker github repository.
 
+![Docker Image Version (latest by date)](https://img.shields.io/docker/v/havah/chain-node?label=havah%2Fchain-node&logo=docker&style=for-the-badge)
+
+[![Docker Pulls](https://badgen.net/docker/pulls/havah/chain-node?icon=docker&label=pulls)](https://hub.docker.com/r/havah/chain-node/)
+[![Docker Image Size](https://badgen.net/docker/size/havah/chain-node?icon=docker&label=image%20size)](https://hub.docker.com/r/havah/chain-node)
+
+![Github last-commit](https://img.shields.io/github/last-commit/havah-project/havah-chain-node-docker)
+
+
 ## Prerequisites
 
 We recommend running nodes using Docker. <br>
