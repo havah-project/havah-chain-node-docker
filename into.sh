@@ -1,5 +1,4 @@
 #!/bin/bash
-
 COMPOSE_FILE=${COMPOSE_FILE:-"docker-compose.yml"}
 
 if [[ ! -f "${COMPOSE_FILE}" ]]; then
