@@ -297,6 +297,7 @@ class CheckMyNode:
                 _expected_nid = base.get_expected_nid(pconf().data.env.SERVICE)
 
             res = CallHttp(f"{url}/admin/chain").run()
+            res2 = CallHttp(f"{url}/admin/system").run()
             if res.response.error:
                 print_error_message(res.response.error)
                 print_error_message("Your node is not running")
@@ -311,6 +312,7 @@ class CheckMyNode:
 
                 if not pconf().data.env.ONLY_GOLOOP:
                     res.response.result[0]['service'] = pconf().data.env.SERVICE
+                res.response.result[0]['version'] = res2.response.result.get("buildVersion")
                 return res.response.result[0]
 
         return {}
@@ -320,9 +322,18 @@ class CheckMyNode:
         local = self.result.get('check_node_status_local')
         public = self.result.get('check_node_status_public')
         if local and public:
-            for k in ["cid", "nid", "channel"]:
-                if local.get(k) != public.get(k):
-                    pawn.console.log(f"[red][ERROR] '{k}' is different. local={local.get(k)}, public={public.get(k)}")
+            for k in ["cid", "nid", "channel", "version"]:
+                if not k == "version":
+                    if local.get(k) != public.get(k):
+                        pawn.console.log(f"[red][ERROR] Your '{k}({local.get(k)})' differs from the public {k}. public {k} is '{public.get(k)}'")
+                else:
+                    latest_version = self.get_latest_image_version("havah/chain-node")
+                    local_version = local.get(k)
+                    public_version = public.get(k)
+                    if local_version != public_version:
+                        pawn.console.log(f"[red][ERROR] Your '{k}({local_version})' differs from the public {k}. public {k} is '{public_version}'")
+                    if local_version != latest_version:
+                        pawn.console.log(f"[red][ERROR] Your '{k}({local_version})' differs from the latest {k}. latest {k} is '{latest_version}'")
 
             pconf().data.result.diff_height = public.get('height', 0) - local.get('height', 0)
             pawn.console.log(f"Left BlockHeight: {pconf().data.result.diff_height} ({public.get('height', 0)} - {local.get('height', 0)})")
@@ -335,6 +346,27 @@ class CheckMyNode:
                     message += " and "
                 message += "'public'"
             print_error_message(f"Failed to fetch state from {message} endpoint")
+
+    @staticmethod
+    def get_latest_image_version(image_name):
+        try:
+            api_url = f"https://hub.docker.com/v2/repositories/{image_name}/tags?page_size=5&page=1&ordering=last_updated"
+            res = CallHttp(api_url).run()
+            img_list = res.response.result['results']
+            if res.response.success and img_list:
+                latest_digest = CheckMyNode.get_latest_image_digest(img_list)
+                for img in img_list:
+                    if img["digest"] == latest_digest and img["name"] != 'latest':
+                        return img["name"]
+        except Exception as e:
+            print(f"Error getting latest image version -> {e}")
+        return None
+
+    @staticmethod
+    def get_latest_image_digest(results):
+        for result in results:
+            if result.get('name') == 'latest':
+                return result.get('digest')
 
 
 def print_banner():
