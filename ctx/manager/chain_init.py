@@ -7,7 +7,7 @@ import socket_request
 from shutil import copy2
 
 from config.configure import Configure as CFG
-from common.icon2 import get_preps, get_inspect, get_validator_status, get_validator_info
+from common.icon2 import get_preps, get_inspect, get_validator_status, get_validator_info, get_validator_info_by_node_key
 from common.output import write_yaml, open_json
 from pawnlib.config import pawn
 
@@ -85,17 +85,18 @@ class ChainInit:
         else:
             my_address = address
         role = self.config.get('ROLE')
-        res = get_validator_info(self.config.get('ENDPOINT'), address)
-        prep_info = res.get("result")
+        res = get_validator_info_by_node_key(endpoint=self.config.get('ENDPOINT'), address=address)
+        validator = res.get("result")
 
         if res.get('error'):
-            self.cfg.logger.error(f"get_validator_info() error='{res.get('error')}'")
+            self.cfg.logger.error(f"get_validator_info() error=\"{res.get('error')}\"")
         else:
-            if prep_info:
-                self.cfg.logger.info(f"[CC] Validator Info name: '{prep_info.get('name')}', grade: '{prep_info.get('grade')}', role: {role}")
+            if isinstance(validator, dict):
+                self.cfg.logger.info(f"[CC] Validator name: '{validator.get('name')}', "
+                                     f"grade: '{validator.get('grade')}', role: {role}, nonVotes: {int(validator.get('nonVotes'), 16)}")
             else:
                 self.cfg.logger.error(f"[CC] It's not a registered keystore(wallet). "
-                                      f"Your keystore address is -> {my_address}")
+                                      f"Your keystore address => {my_address}")
         return {}
 
     def set_configure(self, wait_state=True):
