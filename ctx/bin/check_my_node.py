@@ -10,10 +10,11 @@ from pawnlib.output import is_file, PrintRichTable, open_file, write_file, write
 from pawnlib.typing import sys_exit, str2bool, keys_exists, flatten, todaydate, Null, convert_dict_hex_to_int
 from pawnlib.resource import get_hostname, get_public_ip, get_local_ip, check_port
 from pawnlib.utils.icx_signer import load_wallet_key
-from pawnlib.utils.http import CallHttp, get_operator_truth, append_http, NetworkInfo
+from pawnlib.utils.http import CallHttp, get_operator_truth, append_http, NetworkInfo, disable_ssl_warnings
 from ast import literal_eval
 from functools import partial
 from copy import deepcopy
+disable_ssl_warnings()
 
 
 class CheckMyNode:
@@ -268,24 +269,32 @@ class CheckMyNode:
 
     @_print_result_decorator
     def check_validator_info(self, url=None):
-        res = icon2.get_validator_info(
-            endpoint=url,
-            address=self._owner_address
-        )
-        return res
+        return self._check_wallet_and_get_validator_info(url, )
 
     @_print_result_decorator
     def check_validator_status(self, url=None):
-        # TODO: check status with endpoint of MainNet or VegaNet
-        res = icon2.get_validator_status(
-            endpoint=url,
-            address=self._owner_address
-        )
-        parsed_status = icon2.parse_abnormal_validator_status(res)
-        for key, v in parsed_status.items():
-            print_error_message(f"{key}={v.get('value')}, [yellow]{v.get('description')}[/yellow]")
+        return self._check_wallet_and_get_validator_status(url, )
 
-        return res
+    def _check_wallet_and_get_validator_info(self, url):
+        return self._check_wallet_and_get_validator(url,  icon2.get_validator_info)
+
+    def _check_wallet_and_get_validator_status(self, url,):
+        return self._check_wallet_and_get_validator(url,  icon2.get_validator_status)
+
+    def _check_wallet_and_get_validator(self, url, validator_func):
+        error_message = "unable to fetch validator information."
+
+        if not self._node_address:
+            return {"error": f"Failed to load the wallet, {error_message}"}
+
+        if not self._owner_address:
+            return {"error": f"Failed to find my owner key, {error_message}"}
+
+        res = validator_func(endpoint=url, address=self._owner_address)
+        if validator_func is icon2.get_validator_status:
+            parsed_status = icon2.parse_abnormal_validator_status(res)
+            for key, v in parsed_status.items():
+                print_error_message(f"{key}={v.get('value')}, [yellow]{v.get('description')}[/yellow]")
 
     @_print_result_decorator
     def check_node_status(self, url=None, kind=None):
@@ -323,28 +332,27 @@ class CheckMyNode:
         public = self.result.get('check_node_status_public')
         if local and public:
             for k in ["cid", "nid", "channel", "version"]:
-                if not k == "version":
+                if k != "version":
                     if local.get(k) != public.get(k):
-                        pawn.console.log(f"[red][ERROR] Your '{k}({local.get(k)})' differs from the public {k}. public {k} is '{public.get(k)}'")
+                        pawn.console.log(f"[red][ERROR] Your [white]'{k}({local.get(k)})'[/white] differs from the public {k}. "
+                                         f"Public\'s {k} is [white]'{public.get(k)}'[/white]")
                 else:
                     latest_version = self.get_latest_image_version("havah/chain-node")
                     local_version = local.get(k)
-                    public_version = public.get(k)
-                    if local_version != public_version:
-                        pawn.console.log(f"[red][ERROR] Your '{k}({local_version})' differs from the public {k}. public {k} is '{public_version}'")
                     if local_version != latest_version:
-                        pawn.console.log(f"[red][ERROR] Your '{k}({local_version})' differs from the latest {k}. latest {k} is '{latest_version}'")
+                        pawn.console.log(f"[red][ERROR] Your [white]'{k}({local_version})'[/white] differs from the latest {k}. "
+                                         f"latest {k} is [white]'{latest_version}'[/white]")
 
             pconf().data.result.diff_height = public.get('height', 0) - local.get('height', 0)
             pawn.console.log(f"Left BlockHeight: {pconf().data.result.diff_height} ({public.get('height', 0)} - {local.get('height', 0)})")
         else:
-            message = ""
+            missing_endpoints = []
             if not local:
-                message = "'localhost'"
+                missing_endpoints.append(f"'localhost({self._local_endpoint})'")
             if not public:
-                if message:
-                    message += " and "
-                message += "'public'"
+                missing_endpoints.append(f"'public({self._public_endpoint})'")
+            message = " and ".join(missing_endpoints)
+
             print_error_message(f"Failed to fetch state from {message} endpoint")
 
     @staticmethod
@@ -359,7 +367,7 @@ class CheckMyNode:
                     if img["digest"] == latest_digest and img["name"] != 'latest':
                         return img["name"]
         except Exception as e:
-            print(f"Error getting latest image version -> {e}")
+            pawn.console.log(f"[red]Error getting latest image version[/red] -> {e}")
         return None
 
     @staticmethod
@@ -376,7 +384,7 @@ def print_banner():
 def print_error_message(text=None):
     if text == "SCOREError(-30003): E0003:MethodNotFound":
         text = "It's not yet decentralized."
-    pawn.console.log(f"[red]❌ {text}")
+    pawn.console.log(f"[red]❌ {text}", _stack_offset=3)
 
 
 def main():
