@@ -2,19 +2,23 @@
 COMPOSE_FILE=${COMPOSE_FILE:-"docker-compose.yml"}
 
 if [[ ! -f "${COMPOSE_FILE}" ]]; then
-  echo "[ERROR] ${COMPOSE_FILE} file not found!!"
+  echo "[ERROR] ${COMPOSE_FILE} file not found in ${PWD}"
   exit 1
 fi
 
 
 
-CONTAINER_NAME=$(grep -w "container_name" ${COMPOSE_FILE} | awk -F':' '{print $2}' | tr -d '" ')
+CONTAINER_NAME=$(grep -w "container_name" "${COMPOSE_FILE}" | awk -F':' '{print $2}' | tr -d '" ')
 CONTAINER_STATUS=$(docker ps -q -f name="${CONTAINER_NAME}")
 RUN_COMMAND="docker exec -it $CONTAINER_NAME "
 
-if [[ -z "${CONTAINER_STATUS}" || "${CONTAINER_NAME}" != "havah-chain-node" ]]; then
+if [[ -z "${CONTAINER_STATUS}" ]]; then
   echo "[WARN] [ ${CONTAINER_NAME} ] is not running."
-  RUN_COMMAND="docker run --rm -v ${PWD}/config:/goloop/config -v ${PWD}/logs:/goloop/logs -v ${PWD}/data:/goloop/data -it --name temp-node havah/chain-node"
+  RUN_COMMAND="docker run --rm -it \
+      -v ${PWD}/config:/goloop/config \
+      -v ${PWD}/logs:/goloop/logs \
+      -v ${PWD}/data:/goloop/data \
+      --name temp-node havah/chain-node"
 fi
 
 

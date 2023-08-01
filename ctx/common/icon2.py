@@ -12,8 +12,7 @@ from common import output, converter
 from asn1crypto import keys
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import serialization
-from pawnlib.typing import convert_dict_hex_to_int
-
+from pawnlib.typing import convert_dict_hex_to_int, keys_exists
 import hashlib
 from config.configure import Configure as CFG
 
@@ -149,6 +148,18 @@ def get_validator_info(endpoint=None, address=None, timeout=3):
         },
         timeout=timeout
     )
+
+
+def get_validator_info_by_node_key(endpoint=None, address=None, timeout=3):
+    validators = get_validators_info(endpoint=endpoint, timeout=timeout)
+
+    if keys_exists(validators, 'result', 'validators'):
+        for validator in validators['result']['validators']:
+            if validator.get('node') == address or validator.get('owner') == address:
+                return {'result': validator}
+
+    validators.pop('result', None)
+    return validators
 
 
 def get_preps(endpoint):
