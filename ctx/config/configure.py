@@ -45,11 +45,6 @@ class Configure:
         if not os.path.isdir(self.log_dir):
             os.mkdir(self.log_dir)
 
-        # if self.base_env['ONLY_GOLOOP'] is True:
-        #     self.loggers = Null()
-        #     self.logger = Null()
-        #     return
-
         self.loggers = {'booting.log': self.init_logger('booting.log', log_level=self.base_env['CTX_LEVEL'], log_stdout=True)}
         self.logger = self.get_logger('booting.log')
 
@@ -86,7 +81,7 @@ class Configure:
         except:
             pass
 
-        if self.config.get('CTX_LEVEL') == "debug":
+        if self.base_env.get('CTX_LEVEL') == "debug":
             trace = []
             tb = exception.__traceback__
             while tb is not None:
@@ -332,8 +327,6 @@ class Configure:
                 _debug = False
 
             self.config = converter.UpdateType(self.config, self.logger, debug=_debug).check()
-        # if os.getenv('CTX_LEVEL') == 'debug':
-        #     debug(self.config)
 
     def validate_environment(self):
         if not os.getenv('KEY_PASSWORD'):
