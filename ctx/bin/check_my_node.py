@@ -16,6 +16,7 @@ from functools import partial
 from copy import deepcopy
 disable_ssl_warnings()
 
+RECOMMEND_RAM = 32
 
 class CheckMyNode:
     def __init__(self, is_write_file=False):
@@ -122,8 +123,8 @@ class CheckMyNode:
     def check_recommended_rules(key, value):
         recommended_rules = {
             "memory": {
-                "message": "[yellow](We recommended a minimum 32GB RAM for validator)[/yellow]",
-                "operator": [value, ">=", 32],
+                "message": f"[yellow](We recommended a minimum {RECOMMEND_RAM}GB RAM for validator)[/yellow]",
+                "operator": [value, ">=", RECOMMEND_RAM],
                 "unit": "GB",
             }
         }
@@ -295,6 +296,7 @@ class CheckMyNode:
             parsed_status = icon2.parse_abnormal_validator_status(res)
             for key, v in parsed_status.items():
                 print_error_message(f"{key}={v.get('value')}, [yellow]{v.get('description')}[/yellow]")
+        return res
 
     @_print_result_decorator
     def check_node_status(self, url=None, kind=None):
