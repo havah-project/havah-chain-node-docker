@@ -1,6 +1,6 @@
 REPO_HUB = havah
 NAME = chain-node
-VERSION = v1.1.0
+VERSION = v1.1.3
 POSTFIX_VERSION = ""
 NTP_VERSION = ntp-4.2.8p15
 IS_LOCAL = true
